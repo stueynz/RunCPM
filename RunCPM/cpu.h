@@ -1360,17 +1360,26 @@ void Z80debug(void) {
 	while (loop && Debug) {
 		pos = PC;
 		_puts("\r\n");
-		_puts("BC:");  _puthex16(BC);
-		_puts(" DE:"); _puthex16(DE);
-		_puts(" HL:"); _puthex16(HL);
-		_puts(" AF:"); _puthex16(AF);
+		_puts(" BC:");  _puthex16(BC);
+		_puts("  DE:"); _puthex16(DE);
+		_puts("  HL:"); _puthex16(HL);
+		_puts("  AF:"); _puthex16(AF);
 		_puts(" : [");
 		for (J = 0, I = LOW_REGISTER(AF); J < 8; ++J, I <<= 1) _putcon(I & 0x80 ? Flags[J] : '.');
 		_puts("]\r\n");
-		_puts("IX:");  _puthex16(IX);
-		_puts(" IY:"); _puthex16(IY);
-		_puts(" SP:"); _puthex16(SP);
-		_puts(" PC:"); _puthex16(PC);
+
+		_puts("BC':");  _puthex16(BC1);
+		_puts(" DE':"); _puthex16(DE1);
+		_puts(" HL':"); _puthex16(HL1);
+		_puts(" AF':"); _puthex16(AF1);
+		_puts(" : [");
+		for (J = 0, I = LOW_REGISTER(AF1); J < 8; ++J, I <<= 1) _putcon(I & 0x80 ? Flags[J] : '.');
+		_puts("]\r\n");
+
+		_puts(" IX:");  _puthex16(IX);
+		_puts("  IY:"); _puthex16(IY);
+		_puts("  SP:"); _puthex16(SP);
+		_puts("  PC:"); _puthex16(PC);
 		_puts(" : ");
 
 		Disasm(pos);
