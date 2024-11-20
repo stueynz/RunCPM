@@ -12,11 +12,17 @@ CC = gcc
 CFLAGS = -Wall -O3 -fPIC -Wno-unused-variable
 #CFLAGS = -Wall -O0 -fPIC -Wno-unused-variable -g
 
+GLIB_CFLAGS = -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include
+GLIB_LIBS = -lglib-2.0 -lreadline
+
 # Flags to pass to the linker
 LDFLAGS =
 
 # Objects to build
-OBJS = main.o
+OBJS = main.o debugger/debugger.o debugger/breakpoint.o debugger/expression.o debugger/ui.o \
+	debugger/gdbserver.o debugger/packets.o debugger/gdbserver_utils.o \
+	debugger/disassemble.o debugger/variable.o debugger/system_variable.o debugger/z80_variables.o \
+	debugger/command.o debugger/commandy.o debugger/commandl.o
 
 # Clean up program
 RM = rm -f
@@ -25,15 +31,22 @@ RM = rm -f
 
 all: $(PROG)
 
-$(PROG): main.o
-	$(CC) $(OBJS) -o $(PROG) $(LDFLAGS)
-
-main.o: main.c $(wildcard *.h) $(MFILE)
-	$(CC) $(CFLAGS) -c main.c
+$(PROG): $(OBJS)
+	$(CC) $(OBJS) -o $(PROG) $(LDFLAGS) $(GLIB_LIBS)
 
 rebuild: clean all
+
+%.o: %.c
+	$(CC) $(CFLAGS) $(GLIB_CFLAGS) -c -o $@ $<
+
+%.c: %.y
+	$(SHELL) ./debugger/ylwrap $< y.tab.c $@ y.tab.h $*.h y.output $*.output -- bison -y -d
+
+%.c: %.l
+	$(SHELL) ./debugger/ylwrap $< lex.yy.c $@ -- flex
 
 .PHONY: clean
 clean:
 	$(RM) *.o
+	$(RM) debugger/*.o debugger/command[ly].[ch]
 	$(RM) $(PROG)
