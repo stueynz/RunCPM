@@ -1353,6 +1353,10 @@ uint8 Disasm(uint16 pos) {
 	return(count);
 }
 
+#ifdef EXTENDED_DEBUG
+	char *dbgInput;
+#endif
+
 void Z80debug(void) {
 	uint8 ch = 0;
 	uint16 pos, l;
@@ -1361,10 +1365,6 @@ void Z80debug(void) {
 	unsigned int bpoint;
 	uint8 loop = TRUE;
 	uint8 res = 0;
-
-#ifdef EXTENDED_DEBUG
-	char *dbgInput;
-#endif
 
 	_puts("\r\nDebug Mode - Press '?' for help");
 
