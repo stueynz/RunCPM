@@ -4,6 +4,9 @@ PROG = RunCPM
 
 MFILE = Makefile.posix
 
+# Are we including the extended debugger ??
+#extendedDebug = TRUE
+
 # Compiler command
 CC = gcc
 #CC = gcc -DDEBUG=1 -DDEBUGLOG=1
@@ -12,17 +15,24 @@ CC = gcc
 CFLAGS = -Wall -O3 -fPIC -Wno-unused-variable
 #CFLAGS = -Wall -O0 -fPIC -Wno-unused-variable -g
 
-GLIB_CFLAGS = -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include
-GLIB_LIBS = -lglib-2.0 -lreadline
+ifdef extendedDebug
+CFLAGS += -DEXTENDED_DEBUG
+GLIB_CFLAGS += -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include
+GLIB_LIBS += -lglib-2.0 -lreadline
+endif
 
 # Flags to pass to the linker
 LDFLAGS =
 
 # Objects to build
-OBJS = main.o debugger/debugger.o debugger/breakpoint.o debugger/expression.o debugger/ui.o \
+OBJS = main.o 
+
+ifdef extendedDebug
+OBJS += debugger/debugger.o debugger/breakpoint.o debugger/expression.o debugger/ui.o \
 	debugger/gdbserver.o debugger/packets.o debugger/gdbserver_utils.o \
 	debugger/disassemble.o debugger/variable.o debugger/system_variable.o debugger/z80_variables.o \
 	debugger/command.o debugger/commandy.o debugger/commandl.o
+endif
 
 # Clean up program
 RM = rm -f
@@ -48,5 +58,5 @@ rebuild: clean all
 .PHONY: clean
 clean:
 	$(RM) *.o
-	$(RM) debugger/*.o debugger/command[ly].[ch]
 	$(RM) $(PROG)
+	$(RM) debugger/*.o debugger/command[ly].[ch]
