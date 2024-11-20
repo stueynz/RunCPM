@@ -29,6 +29,13 @@ char iLogBuffer[256];
 const char* iLogTxt;
 #endif
 
+#ifdef EXTENDED_DEBUG
+#include <string.h>
+#include <readline/readline.h>
+#include <readline/history.h>
+#include "debugger/debugger.h"
+#endif
+
 /* increase R by val (to correctly implement refresh counter) if enabled */
 #ifdef DO_INCR
 #define INCR(val) IR = (IR & ~0x3f) | ((IR + (val)) & 0x3f)
@@ -1355,15 +1362,19 @@ void Z80debug(void) {
 	uint8 loop = TRUE;
 	uint8 res = 0;
 
+#ifdef EXTENDED_DEBUG
+	char *dbgInput;
+#endif
+
 	_puts("\r\nDebug Mode - Press '?' for help");
 
 	while (loop && Debug) {
 		pos = PC;
 		_puts("\r\n");
-		_puts(" BC:");  _puthex16(BC);
-		_puts("  DE:"); _puthex16(DE);
-		_puts("  HL:"); _puthex16(HL);
-		_puts("  AF:"); _puthex16(AF);
+		_puts("BC :");  _puthex16(BC);
+		_puts(" DE :"); _puthex16(DE);
+		_puts(" HL :"); _puthex16(HL);
+		_puts(" AF :"); _puthex16(AF);
 		_puts(" : [");
 		for (J = 0, I = LOW_REGISTER(AF); J < 8; ++J, I <<= 1) _putcon(I & 0x80 ? Flags[J] : '.');
 		_puts("]\r\n");
@@ -1376,10 +1387,10 @@ void Z80debug(void) {
 		for (J = 0, I = LOW_REGISTER(AF1); J < 8; ++J, I <<= 1) _putcon(I & 0x80 ? Flags[J] : '.');
 		_puts("]\r\n");
 
-		_puts(" IX:");  _puthex16(IX);
-		_puts("  IY:"); _puthex16(IY);
-		_puts("  SP:"); _puthex16(SP);
-		_puts("  PC:"); _puthex16(PC);
+		_puts("IX :");  _puthex16(IX);
+		_puts(" IY :"); _puthex16(IY);
+		_puts(" SP :"); _puthex16(SP);
+		_puts(" PC :"); _puthex16(PC);
 		_puts(" : ");
 
 		Disasm(pos);
@@ -1493,6 +1504,26 @@ void Z80debug(void) {
 				_puts("\r\n");
 			}
 			break;
+#ifdef EXTENDED_DEBUG			
+		case 'E':
+		{
+			_console_reset();  // Let's have input echo back... and we're grabbing input by line
+			printf("\n");
+			while ( 1 )
+			{
+				dbgInput = readline("DBG>");
+				if(strcmp(dbgInput, "bye") == 0)
+					break;
+				else {
+					add_history(dbgInput);
+					debugger_command_evaluate(dbgInput);
+				}
+				free(dbgInput);
+			}
+			_console_init();  // put console input back....
+	        break;
+		}
+#endif
 		case 'X':
 			_puts("\r\nExiting...\r\n");
 			Debug = 0;
@@ -1516,6 +1547,9 @@ void Z80debug(void) {
 			_puts("  B - Sets breakpoint at address\r\n");
 			_puts("  C - Clears breakpoint\r\n");
 			_puts("  D - Dumps memory at address\r\n");
+#ifdef EXTENDED_DEBUG			
+			_puts("  E - Enter extended debugger\r\n");
+#endif
 			_puts("  L - Disassembles at address\r\n");
 			_puts("  T - Steps over a call\r\n");
 			_puts("  W - Sets a byte/word watch\r\n");
