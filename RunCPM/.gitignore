@@ -1,0 +1,9 @@
+## object files
+*.o
+
+## Lex & YACC generated files
+debugger/commandl.c
+debugger/commandl.h
+debugger/commandy.c
+debugger/commandy.h
+
