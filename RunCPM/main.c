@@ -44,6 +44,10 @@ FILE* lst_dev;
 int lst_open = FALSE;
 #endif
 
+#ifdef EXTENDED_DEBUG
+#include "debugger/debugger.h"
+#endif
+
 #include "ram.h"		// ram.h - Implements the RAM
 #include "console.h"	// console.h - Defines all the console abstraction functions
 #include "cpu.h"		// cpu.h - Implements the emulated CPU
@@ -54,10 +58,16 @@ int lst_open = FALSE;
 #include "ccp.h"		// ccp.h - Defines a simple internal CCP
 #endif
 
+
 int main(int argc, char* argv[]) {
 
 #ifdef DEBUGLOG
 	_sys_deletefile((uint8*)LogName);
+#endif
+
+#ifdef EXTENDED_DEBUG
+	debugger_init();
+	z80_debugger_variables_init();  // Tell the debugger about all the Z80 registers
 #endif
 
 #ifdef STREAMIO
@@ -145,6 +155,9 @@ int main(int argc, char* argv[]) {
 	_console_reset();
 #ifdef STREAMIO
 	_streamioReset();
+#endif
+#ifdef EXTENDED_DEBUG
+	debugger_end();
 #endif
 	return(0);
 }
