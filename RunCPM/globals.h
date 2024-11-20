@@ -18,6 +18,10 @@
 //#define DEBUGONHALT		// Enables the internal debugger when the CPU halts
 //#define iDEBUG			// Enables instruction logging onto iDebug.log (for development debug only)
 //#define DEBUGLOG			// Writes extensive call trace information to RunCPM.log
+
+//#define EXTENDED_DEBUG    // Multiple Breakpoints; Breakpoint on address/port, Read/Write, Expressions etc...
+                            //   Note:  Can't be used in conjunction with RAM_FAST
+
 #define DEBUGKEY 4			// Key to trigger the debugger. 4 = ^D
 
 //#define CONSOLELOG		// Writes debug information to console instead of file
@@ -169,18 +173,31 @@ static uint8 ioBank = 1;			// Destination bank for sector IO
 #define MEMSIZE PAGESIZE * BANKS	// Total RAM size
 
 #if BANKS==1
+#ifndef EXTENDED_DEBUG
 #define RAM_FAST					// If this is defined, all RAM function calls become direct access (see below)
 									// This saves about 2K on the Arduino code and should bring speed improvements
 									// This feature is only available if there is only one bank of RAM
+			                        //   Note:  Can't be used in conjunction with EXTENDED_DEBUG
+#endif
 #endif
 
 #ifdef RAM_FAST						// Makes all function calls to memory access into direct RAM access (less calls / less code)
 	static uint8 RAM[MEMSIZE];
+#ifdef EXTENDED_DEBUG
+    #error Cannot define both RAM_FAST and EXTENDED_DEBUG check defs in "globals.h"
+	#include <StopNow>            // A fudge to cause the compiler to stop, because both RAM_FAST and EXTENDED_DEBUG are defined; please pick one !!!
+#else
 	#define _RamSysAddr(a)		&RAM[a]
 	#define _RamRead(a)			RAM[a]
 	#define _RamRead16(a)		((RAM[((a) & 0xffff) + 1] << 8) | RAM[(a) & 0xffff])
 	#define _RamWrite(a, v)		RAM[a] = v
 	#define _RamWrite16(a, v)	RAM[a] = (v) & 0xff; RAM[(a) + 1] = (v) >> 8
+#endif
+#else
+extern uint8  _RamRead(uint16 address);
+extern uint16 _RamRead16(uint16 address);
+extern void   _RamWrite(uint16 address, uint8 value);
+extern void   _RamWrite16(uint16 address, uint16 value);
 #endif
 
 // Size of the allocated pages (Minimum size = 1 page = 256 bytes)
