@@ -20,6 +20,7 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
 /*

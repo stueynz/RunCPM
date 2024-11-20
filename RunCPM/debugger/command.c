@@ -19,22 +19,14 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
-*/
-
-/*
-#include "config.h"
-
-#include "mempool.h"
-#include "utils.h"
-#include "z80/z80.h"
-#include "z80/z80_macros.h"
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "../globals.h"
+#include "../globals.h"   // RunCPM global definitions...
 
 #include "debugger.h"
 #include "internals.h"
@@ -96,12 +88,14 @@ debugger_command_input( char *buf, int *result, int max_size )
   }
 }
 
+
 /* Utility functions called by the bison parser */
-extern uint8 RAM[];
+
+extern char* dbgInput;   // current dbg input string
 
 /* The error callback if yyparse finds an error */
 void
 yyerror( const char *s )
 {
-  ui_error( UI_ERROR_ERROR, "Invalid debugger command: %s\ndiagnostic:%s", (char *) _RamSysAddr(BDOSjmppage - 250), s);
+  ui_error( UI_ERROR_ERROR, "Invalid debugger command: %s\ndiagnostic:%s", dbgInput, s);
 }

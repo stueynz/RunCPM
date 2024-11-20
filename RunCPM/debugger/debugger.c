@@ -19,19 +19,7 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
-*/
-
-/*
-#include "config.h"
-
-#include "event.h"
-#include "fuse.h"
-#include "infrastructure/startup_manager.h"
-#include "memory_pages.h"
-#include "mempool.h"
-#include "periph.h"
-#include "z80/z80.h"
-#include "z80/z80_macros.h"
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
 #include "../globals.h"

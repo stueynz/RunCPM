@@ -22,26 +22,13 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
-*/
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 
-/*
-#include "config.h"
-
-#include <ctype.h>
-#include <string.h>
-
-#include "libspectrum.h"
-
-#include "event.h"
-#include "fuse.h"
-#include "memory_pages.h"
-#include "ui/ui.h"
-#include "utils.h"
 */
 
 #include <glib.h>
 
-#include "internals.h"
+#include "internals.h"   // debugger internals not emulator internals
 #include "ui.h"
 
 /* RunCPM Status */

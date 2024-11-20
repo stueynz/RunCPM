@@ -22,16 +22,8 @@
 
    Philip: philip-fuse@shadowmagic.org.uk
 
-*/
-
-/*
-#include "config.h"
-
-#include "libspectrum.h"
-
-#include "fuse.h"
-#include "memory_pages.h"
-#include "ui/ui.h"
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor 
+      todo: Drop this in favour of the nicer disassembly output from RunCPM
 */
 
 #include <stdio.h>

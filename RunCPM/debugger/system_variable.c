@@ -19,20 +19,7 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
-*/
-
-/*
-#include "config.h"
-
-#include <string.h>
-#ifdef HAVE_STRINGS_STRCASECMP
-#include <strings.h>
-#endif
-
-#include "debugger_internals.h"
-#include "fuse.h"
-#include "ui/ui.h"
-#include "utils.h"
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
 #include <glib.h>

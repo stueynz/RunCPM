@@ -20,28 +20,11 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
 #ifndef FUSE_UI_H
 #define FUSE_UI_H
-
-/* 
-#include <stdarg.h>
-
-#include <glib.h>
-
-#include "libspectrum.h"
-
-#include "compat.h"
-#include "machines/specplus3.h"
-#include "peripherals/disk/beta.h"
-#include "peripherals/disk/didaktik.h"
-#include "peripherals/disk/disciple.h"
-#include "peripherals/disk/opus.h"
-#include "peripherals/disk/plusd.h"
-#include "svg.h"
-#include "ui/scaler/scaler.h"
-*/
 
 /* Remove the gcc-specific incantations if we're not using gcc */
 #ifdef __GNUC__

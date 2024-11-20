@@ -20,18 +20,10 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
 %{
-
-/**
-#include "config.h"
-
-#include "debugger/debugger_internals.h"
-#include "mempool.h"
-#include "z80/z80.h"
-#include "z80/z80_macros.h"
-**/
 
 #include <stdio.h>		/* Needed by NetBSD yacc */
 #include <stdlib.h>

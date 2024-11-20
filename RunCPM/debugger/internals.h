@@ -19,6 +19,8 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
+
 */
 
 #ifndef FUSE_DEBUGGER_INTERNALS_H
@@ -27,11 +29,8 @@
 #include "../globals.h"
 #include "debugger.h"
 
-/* Memory pool used by the lexer and parser */
-extern int debugger_memory_pool;
-
 /* The event type used to trigger time breakpoints */
-extern int debugger_breakpoint_event;
+// extern int debugger_breakpoint_event;
 
 int debugger_breakpoint_remove( size_t id );
 int debugger_breakpoint_remove_all( void );

@@ -20,21 +20,7 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
-*/
-
-/*
-#include "config.h"
-
-#include "libspectrum.h"
-
-#include "fuse.h"
-#include "peripherals/if1.h"
-#include "peripherals/kempmouse.h"
-#include "settings.h"
-#include "tape.h"
-#include "ui/ui.h"
-#include "ui/uimedia.h"
-#include "ui/widget/widget.h"
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
 #include <stdarg.h>

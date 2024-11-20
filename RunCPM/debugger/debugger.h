@@ -19,16 +19,15 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
 #ifndef FUSE_DEBUGGER_H
 #define FUSE_DEBUGGER_H
 
+#include <stdio.h>
 #include <stdlib.h>
-
 #include <glib.h>
-
-#include "libspectrum.h"
 
 #include "breakpoint.h"
 

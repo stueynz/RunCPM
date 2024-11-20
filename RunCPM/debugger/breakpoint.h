@@ -20,12 +20,12 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
+
 */
 
 #ifndef FUSE_DEBUGGER_BREAKPOINT_H
 #define FUSE_DEBUGGER_BREAKPOINT_H
-
-// #include "memory_pages.h"
 
 #include <stdint.h>
 #include <glib.h>
@@ -37,7 +37,7 @@ typedef enum debugger_breakpoint_type {
   DEBUGGER_BREAKPOINT_TYPE_WRITE,
   DEBUGGER_BREAKPOINT_TYPE_PORT_READ,
   DEBUGGER_BREAKPOINT_TYPE_PORT_WRITE,
-//  DEBUGGER_BREAKPOINT_TYPE_TIME,
+//  DEBUGGER_BREAKPOINT_TYPE_TIME,              // Gotta figure out if RunCPM does time clicks...
 //  DEBUGGER_BREAKPOINT_TYPE_EVENT,
 } debugger_breakpoint_type;
 
@@ -53,7 +53,7 @@ typedef enum debugger_breakpoint_life {
 extern const char *debugger_breakpoint_life_text[];
 extern const char debugger_breakpoint_life_abbr[][5];
 
-typedef struct debugger_breakpoint_address {
+typedef struct debugger_breakpoint_address {              // Gotta figure out how/if RunCPM does memory banks...
 
   /* Which memory device we are interested in. memory_source_any for an
      absolute address */

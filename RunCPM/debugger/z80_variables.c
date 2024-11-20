@@ -19,21 +19,11 @@
 
    E-mail: philip-fuse@shadowmagic.org.uk
 
+   Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
-/*
-#include "config.h"
-
-#include "libspectrum.h"
-
-#include "debugger/debugger.h"
-#include "z80.h"
-#include "z80_internals.h"
-#include "z80_macros.h"
-*/
-
-#include "../globals.h"
-#include "internals.h"
+#include "../globals.h"          // RunCPM global definitions (interestingly no externs for the registers)
+#include "internals.h"           // debugger internals
 
 extern int32 PCX; /* external view of PC                          */
 extern int32 AF;  /* AF register                                  */
