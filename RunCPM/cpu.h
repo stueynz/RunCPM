@@ -31,9 +31,8 @@ const char* iLogTxt;
 
 #ifdef EXTENDED_DEBUG
 #include <string.h>
-#include <readline/readline.h>
-#include <readline/history.h>
 #include "debugger/debugger.h"
+#include "isocline/isocline.h"
 #endif
 
 /* increase R by val (to correctly implement refresh counter) if enabled */
@@ -1242,7 +1241,33 @@ void memdump(uint16 pos) {
 	}
 }
 
-void DisHex(uint16 pos) {
+// Adds HH hex string to the buffer location
+//    returns next free buffer location
+char * 
+_bputhex8(uint8 c, char *bptr)		// Puts a HH hex string
+{
+  *bptr++ = tohex(c >> 4);
+  *bptr++ = tohex(c & 0x0f);
+
+  return bptr;
+}
+
+// Adds HH hex string to the buffer location
+//    returns next free buffer location
+char * 
+_bputhex16(uint16 w, char *bptr)	// puts a HHHH hex string
+{
+	bptr = _bputhex8(w >> 8, bptr);
+	bptr = _bputhex8(w & 0x00ff, bptr);
+  return bptr;
+}
+
+char disasmBuf[64];
+
+// Adds hex bytes from Ram to the buffer location - no of bytes varies by Z80 instruction
+//    returns next free buffer location
+char *
+bDisHex(uint16 pos, char *bptr) {
 	const char* txt;
 	uint8 ch = _RamRead(pos);
 	uint8 count = 0;
@@ -1257,14 +1282,14 @@ void DisHex(uint16 pos) {
 		if (_RamRead(pos) != 0xCB) {
 			txt = MnemonicsXX[_RamRead(pos++)];
 		} else {
-			_puthex8(ch); _putch(' '); count++;
+			bptr = _bputhex8(ch, bptr); *bptr++ = ' '; count++;  // _putch(' ');
 			++pos; txt = MnemonicsXCB[_RamRead(pos++)];
 		}
 		break;
 	default: ch = _RamRead(pos); txt = Mnemonics[_RamRead(pos++)];
 	}
-	_puthex8(ch);
-	_putch(' ');
+	bptr = _bputhex8(ch, bptr);
+	*bptr++ = ' ';  // _putch(' ');
 	count++;
 	while (*txt != 0) {
 		switch (*txt) {
@@ -1273,28 +1298,34 @@ void DisHex(uint16 pos) {
 		case '@':
 			txt += 2;
 			++count;
-			_puthex8(_RamRead(pos++));
+			bptr = _bputhex8(_RamRead(pos++), bptr);
 			_putch(' ');
 			break;
 		case '#':
 			txt += 2;
 			count += 2;
-			_puthex8(_RamRead(pos));
-			_putch(' ');
-			_puthex8(_RamRead(pos + 1));
-			_putch(' ');
+			bptr = _bputhex8(_RamRead(pos), bptr);
+			*bptr++ = ' '; // _putch(' ');
+			bptr = _bputhex8(_RamRead(pos + 1), bptr);
+			*bptr++ = ' '; // _putch(' ');
 			break;
 		default:
 			++txt;
 		}
 	}
 	while (count < 6) {
-		_puts("   ");
+			*bptr++ = ' '; // _putch(' ');
+      *bptr++ = ' '; // _putch(' ');
+      *bptr++ = ' '; // _putch(' ');
 		count++;
 	}
+	return bptr;
 }
 
-uint8 Disasm(uint16 pos) {
+// Adds z80 disassembly to the buffer location - no of bytes varies by Z80 instruction
+//    returns the number of bytes disassembled...
+uint8
+bDisasm(uint16 pos, char *bptr) {
 	const char* txt;
 	char jr;
 	uint8 ch = _RamRead(pos);
@@ -1326,37 +1357,78 @@ uint8 Disasm(uint16 pos) {
 		case '^':
 			txt += 2;
 			++count;
-			_puthex8(_RamRead(pos++));
+			bptr = _bputhex8(_RamRead(pos++), bptr);
 			break;
 		case '#':
 			txt += 2;
 			count += 2;
-			_puthex8(_RamRead(pos + 1));
-			_puthex8(_RamRead(pos));
+			bptr = _bputhex8(_RamRead(pos + 1), bptr);
+			bptr = _bputhex8(_RamRead(pos), bptr);
 			break;
 		case '@':
 			txt += 2;
 			++count;
 			jr = _RamRead(pos++);
-			_puthex16(pos + jr);
+			bptr = _bputhex16(pos + jr, bptr);
 			break;
 		case '%':
-			_putch(C);
+			if (C) *bptr++ = C;
 			++txt;
 			break;
 		default:
-			_putch(*txt);
-			++txt;
+			*bptr++ = *txt++;
 		}
 	}
-
+	*bptr = '\0'; // terminate the string
 	return(count);
 }
 
 #ifdef EXTENDED_DEBUG
-	char *dbgInput;
-#endif
+extern void ui_debugger_status();
 
+char *dbgInput;   // needs to be a global, so that yyerror() can give a (somewhat) useful error message
+char brkMsg[20] = ":BREAK at 0x0000\r\n";
+char stpMsg[20] = ":STEP at 0x0000\r\n";
+
+/* extended debugger accepts commands from stdin, with history, completion, etc... */
+void Z80debug(void)
+{
+	_console_reset();  // Let's have input echo back... and we're grabbing input by line
+	fputs("\r\nExtended Debug Mode:\r\n", stderr);
+	ui_debugger_status();
+	debugger_command_evaluate("dis z80:PC");
+
+	while ( 1 )
+	{
+		dbgInput = ic_readline("DBG");
+		debugger_command_evaluate(dbgInput);
+
+		if(! Debug)  // leaving debugger (for now)
+			break;
+	}
+	_console_init();  // put console input back....
+}
+
+#else
+// Puts HH hex string to the console from memory location given
+static void
+DisHex(uint16 pos) {
+
+	char *bptr = bDisHex(pos, &disasmBuf[0]);
+	*bptr = '\0';
+	_puts(disasmBuf);
+}
+
+// Puts z80 disassembly to the console from member location given - no of bytes varies by Z80 instruction
+//    returns the number of bytes disassembled...
+static uint8
+Disasm(uint16 pos) {
+
+	uint8 count=bDisasm(pos, &disasmBuf[0]);
+	_puts(disasmBuf);
+
+	return count;
+}
 void Z80debug(void) {
 	uint8 ch = 0;
 	uint16 pos, l;
@@ -1476,6 +1548,7 @@ void Z80debug(void) {
 			_puts(" Addr: ");
 			res=scanf("%04x", &bpoint);
 			if (res) {
+				_puts("\r\n");
 				I = 16;
 				l = bpoint;
 				while (I > 0) {
@@ -1504,26 +1577,7 @@ void Z80debug(void) {
 				_puts("\r\n");
 			}
 			break;
-#ifdef EXTENDED_DEBUG			
-		case 'E':
-		{
-			_console_reset();  // Let's have input echo back... and we're grabbing input by line
-			printf("\n");
-			while ( 1 )
-			{
-				dbgInput = readline("DBG>");
-				if(strcmp(dbgInput, "bye") == 0)
-					break;
-				else {
-					add_history(dbgInput);
-					debugger_command_evaluate(dbgInput);
-				}
-				free(dbgInput);
-			}
-			_console_init();  // put console input back....
-	        break;
-		}
-#endif
+
 		case 'X':
 			_puts("\r\nExiting...\r\n");
 			Debug = 0;
@@ -1547,9 +1601,6 @@ void Z80debug(void) {
 			_puts("  B - Sets breakpoint at address\r\n");
 			_puts("  C - Clears breakpoint\r\n");
 			_puts("  D - Dumps memory at address\r\n");
-#ifdef EXTENDED_DEBUG			
-			_puts("  E - Enter extended debugger\r\n");
-#endif
 			_puts("  L - Disassembles at address\r\n");
 			_puts("  T - Steps over a call\r\n");
 			_puts("  W - Sets a byte/word watch\r\n");
@@ -1560,6 +1611,7 @@ void Z80debug(void) {
 		}
 	}
 }
+#endif
 #endif
 
 static inline void Z80run(void) {
@@ -1574,6 +1626,23 @@ static inline void Z80run(void) {
 	while (!Status) {	/* loop until Status != 0 */
 
 #ifdef DEBUG
+
+#ifdef EXTENDED_DEBUG
+		// Are we about to execute at a break point?
+		if(debugger_check(DEBUGGER_BREAKPOINT_TYPE_EXECUTE, PC)) {
+			_bputhex16(PC, &brkMsg[12]);
+			fputs(brkMsg, stderr);
+			Debug = 1;
+		}
+
+  		// Have we just completed executing the instruction at STEP?
+		if (PCX == Step) {
+			_bputhex16(PC, &stpMsg[11]);
+			fputs(stpMsg, stderr);
+			Debug = 1;
+			Step = -1;
+		}
+#else
 		if (PC == Break) {
 			_puts(":BREAK at ");
 			_puthex16(Break);
@@ -1584,8 +1653,10 @@ static inline void Z80run(void) {
 			Debug = 1;
 			Step = -1;
 		}
+#endif
 		if (Debug)
 			Z80debug();
+
 		if (Status)
 			break;
 #endif

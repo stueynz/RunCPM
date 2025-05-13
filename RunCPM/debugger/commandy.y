@@ -45,7 +45,7 @@ int yylex(); /* shutup implicit declaration warning */
  *  Stuff added by Stuart from FUSE...
  */
 
-extern int32_t PC;  /* program counter */
+extern int32_t PC;          /* program counter */
 
  /* ====================================================================================================*/
 
@@ -89,9 +89,11 @@ extern int32_t PC;  /* program counter */
 %token		 DEBUGGER_DELETE
 %token		 DISASSEMBLE
 %token       DEBUGGER_END
+%token       DUMP
 %token		 EVENT
 %token		 EXIT
 %token		 FINISH
+%token       GO
 %token		 IF
 %token		 DEBUGGER_IGNORE
 %token		 NEXT
@@ -188,8 +190,10 @@ command:   BASE number { debugger_output_base = $2; }
 	 | DEBUGGER_DELETE { debugger_breakpoint_remove_all(); }
 	 | DEBUGGER_DELETE number { debugger_breakpoint_remove( $2 ); }
 	 | DISASSEMBLE number { ui_debugger_disassemble( $2 ); }
+	 | DUMP number { ui_debugger_dump( $2 ); }
 	 | EXIT expressionornull { debugger_exit_emulator( $2 ); }
 	 | FINISH   { debugger_breakpoint_exit(); }
+	 | GO number { debugger_go( $2 ); }
 	 | DEBUGGER_IGNORE NUMBER number { debugger_breakpoint_ignore( $2, $3 ); }
 	 | NEXT	    { debugger_next(); }
 	 | DEBUGGER_OUT number NUMBER { debugger_port_write( $2, $3 ); }

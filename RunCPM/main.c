@@ -46,6 +46,8 @@ int lst_open = FALSE;
 
 #ifdef EXTENDED_DEBUG
 #include "debugger/debugger.h"
+
+extern void ic_initialize();
 #endif
 
 #include "ram.h"		// ram.h - Implements the RAM
@@ -58,7 +60,6 @@ int lst_open = FALSE;
 #include "ccp.h"		// ccp.h - Defines a simple internal CCP
 #endif
 
-
 int main(int argc, char* argv[]) {
 
 #ifdef DEBUGLOG
@@ -68,6 +69,7 @@ int main(int argc, char* argv[]) {
 #ifdef EXTENDED_DEBUG
 	debugger_init();
 	z80_debugger_variables_init();  // Tell the debugger about all the Z80 registers
+	ic_initialize();                // libreadline replacement -- that actually works !!
 #endif
 
 #ifdef STREAMIO

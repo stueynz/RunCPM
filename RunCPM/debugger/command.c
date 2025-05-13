@@ -47,9 +47,6 @@ debugger_command_evaluate( const char *command )
 {
   if( !command ) return;
 
-  ui_error(UI_ERROR_INFO, "dbg-evaluate:\r\n");
-  ui_error(UI_ERROR_INFO, "%s\r\n", command);
-
   if( command_buffer ) free( command_buffer );
 
   command_buffer = strdup( command );

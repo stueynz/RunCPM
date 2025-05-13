@@ -58,9 +58,11 @@ cond|condi|condit|conditi|conditio|condition { return CONDITION; }
 cl|cle|clea|clear { return CLEAR; }
 del|dele|delet|delete { return DEBUGGER_DELETE; }
 di|dis|disa|disas|disass|disasse|disassm|disassmb|diasassmbl|disassemble { return DISASSEMBLE; }
+du|dum|dump { return DUMP; }
 ev|eve|even|event { return EVENT; }
 ex|exi|exit { return EXIT; }
 fi|fin|fini|finis|finish { return FINISH; }
+go { return GO; }
 if { return IF; }
 ig|ign|igno|ignor|ignore { return DEBUGGER_IGNORE; }
 n|ne|nex|next { return NEXT; }

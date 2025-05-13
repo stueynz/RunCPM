@@ -498,8 +498,8 @@ free_breakpoint( gpointer data, gpointer user_data GCC_UNUSED )
 
   switch( bp->type ) {
 //  case DEBUGGER_BREAKPOINT_TYPE_EVENT:
-//    libspectrum_free( bp->value.event.type );
-//    libspectrum_free( bp->value.event.detail );
+//    free( bp->value.event.type );
+//    free( bp->value.event.detail );
 //    break;
 
   case DEBUGGER_BREAKPOINT_TYPE_EXECUTE:

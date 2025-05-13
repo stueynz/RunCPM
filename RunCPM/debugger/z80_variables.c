@@ -92,7 +92,7 @@ static const char * const q_detail_string = "q";
 */
 
 #define DEBUGGER_CALLBACKS(reg) \
-  static uint32 get_##reg( void ) { return reg;  } \
+  static uint32 get_##reg( void ) { return WORD16(reg);  } \
   static void set_##reg( uint32 value ) { reg = value; }
 
 

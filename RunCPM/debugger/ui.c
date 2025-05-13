@@ -115,12 +115,6 @@ print_error_to_stderr( ui_error_level severity, const char *message )
 /* Which base should we display things in */
 extern int debugger_output_base;
 
-static const char*
-format_16_bit( void )
-{
-  return debugger_output_base == 10 ? "%5d" : "0x%04X";
-}
-
 void ui_breakpoint(gpointer entry, gpointer udata)
 {
   char buffer[80];
@@ -158,33 +152,72 @@ ui_debugger_status()
   fprintf(stderr, "   variables:%d\n", g_hash_table_size(debugger_variables));
   g_hash_table_foreach(debugger_variables, ui_variable, NULL);
 
-  fprintf(stderr, "   registers: BC :%04x  DE :%04x   HL :%04x   AF : %04x\n", BC, DE, HL, AF);
-  fprintf(stderr, "              BC':%04x  DE':%04x   HL':%04x   AF': %04x\n", BC1, DE1, HL1, AF1);
-  fprintf(stderr, "              IX :%04x  IY :%04x   SP :%04x   PC : %04x\n", IX, IY, SP, PC);
+  fprintf(stderr, "   registers: BC :%04x  DE :%04x   HL :%04x   AF : %04x\n", WORD16(BC), WORD16(DE), WORD16(HL), WORD16(AF));
+  fprintf(stderr, "              BC':%04x  DE':%04x   HL':%04x   AF': %04x\n", WORD16(BC1), WORD16(DE1), WORD16(HL1), WORD16(AF1));
+  fprintf(stderr, "              IX :%04x  IY :%04x   SP :%04x   PC : %04x\n", WORD16(IX), WORD16(IY), WORD16(SP), WORD16(PC));
 }
 
+extern uint8 bDisasm(uint16 pos, char *bptr);
+extern char *bDisHex(uint16 pos, char *bptr);
+
+extern char *_bputhex8(uint8 c, char *bptr);
+extern char * _bputhex16(uint16 w, char *bptr);
+
+
+/**
+ *  Disassemble 16 instructions from given address onwards .. to stderr
+ */
 void
 ui_debugger_disassemble(uint16_t address)
 {
-  size_t i;
+  char buf[32];
 
-  for( i = 0; i < 20; i++ ) {
-    size_t l, length;
-    char buffer1[40], buffer2[40];
+  uint16_t l = address;
+  for (int i=0; i<=16; i++)
+  {
+    char *bptr = &buf[0];
 
-    snprintf( buffer1, sizeof( buffer1 ), format_16_bit(), address );
-    debugger_disassemble( buffer2, sizeof( buffer2 ), &length, address );
-
-    /* pad to 16 characters (long instruction) to avoid varying width */
-    /*
-    l = strlen( buffer2 );
-    while( l < 16 ) buffer2[l++] = ' ';
-    buffer2[l] = 0;
-    */
-
-    address += length;
-
-    // output the two buffers to stderr
-    fprintf( stderr, "%s   %s", buffer1, buffer2);
+    fprintf(stderr, "%04x : ", l);
+    bptr = bDisHex(l, bptr);
+    l += bDisasm(l, bptr);
+    fprintf(stderr, "%s\r\n", buf);
   }
+  fputs("\r\n", stderr);
+}
+
+/**
+ *  HEX Dump 256 bytes from given address to stderr
+ */
+void
+ui_debugger_dump(uint16_t address)
+{
+  char buf[2048];
+  char *bptr;
+
+  uint16 h = address;
+	uint16 c = address;
+	uint8 l, i;
+	uint8 ch = address & 0xff;
+
+  fprintf(stderr, "       00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\r\n       -----------------------------------------------\r\n");
+  bptr = &buf[0];
+	for (l = 0; l < 16; ++l) {
+		bptr = _bputhex16(h, bptr);
+    *bptr++= ' ';
+    *bptr++= ':';
+    *bptr++= ' ';
+    
+		for (i = 0; i < 16; ++i) {
+			bptr = _bputhex8(_RamRead(h++), bptr);
+      *bptr++ = ' ';
+		}
+		for (i = 0; i < 16; ++i) {
+			ch = _RamRead(c++);
+			*bptr++ = (ch > 31 && ch < 127 ? ch : '.');
+		}
+    *bptr++ = '\r';
+    *bptr++ = '\n';
+	}
+  *bptr++ = '\0';
+  fprintf(stderr, "%s\r\n", buf);
 }

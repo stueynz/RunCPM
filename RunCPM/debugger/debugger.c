@@ -101,6 +101,8 @@ is_debugger_enabled()
   return gdbserver_debugging_enabled;
 }
 
+extern uint32_t Debug, Step;
+
 /* Activate the debugger */
 int
 debugger_trap( void )
@@ -111,14 +113,14 @@ debugger_trap( void )
     return 0;
 }
 
-/* Step one instruction */
+/* Step - execute one instruction */
 int
 debugger_step( void )
 {
-  debugger_mode = DEBUGGER_MODE_HALTED;
-  if (gdbserver_debugging_enabled) {
-      return 0;
-  }
+
+  Step = PC;
+  debugger_run();
+
   return 0;
 }
 
@@ -131,7 +133,7 @@ debugger_next( void )
   /* Find out how long the current instruction is */
   debugger_disassemble( NULL, 0, &length, PC );
 
-  /* And add a breakpoint after that */
+  /* And add a one-shot breakpoint after that */
   debugger_breakpoint_add_address(
     DEBUGGER_BREAKPOINT_TYPE_EXECUTE, 
       // memory_source_any, 0, 
@@ -144,6 +146,15 @@ debugger_next( void )
   return 0;
 }
 
+/* Start execution from given address */
+int
+debugger_go( uint16_t address )
+{
+  PC = address;
+  debugger_run();
+  return 0;
+}
+
 /* Set debugger_mode so that emulation will occur */
 int
 debugger_run( void )
@@ -153,8 +164,11 @@ debugger_run( void )
                   DEBUGGER_MODE_INACTIVE;
   if (gdbserver_debugging_enabled)
   {
-      return 0;
+    return 0;
   }
+
+  // Not running via GDB server - so turn off main extended debugger
+  Debug = 0;
   return 0;
 }
 

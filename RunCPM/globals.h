@@ -14,14 +14,18 @@
 #define USE_LST
 
 /* Definitions for file/console based debugging */
+#ifndef DEBUG
 #define DEBUG				// Enables the internal debugger (enabled by default on vstudio debug builds)
+#endif
 //#define DEBUGONHALT		// Enables the internal debugger when the CPU halts
 //#define iDEBUG			// Enables instruction logging onto iDebug.log (for development debug only)
 //#define DEBUGLOG			// Writes extensive call trace information to RunCPM.log
 
-//#define EXTENDED_DEBUG    // Multiple Breakpoints; Breakpoint on address/port, Read/Write, Expressions etc...
-                            //   Note:  Can't be used in conjunction with RAM_FAST
-
+#ifndef EXTENDED_DEBUG
+#define EXTENDED_DEBUG    // Extended debugger, has Multiple Breakpoints; Breakpoint on address/port, Read/Write, Expressions etc...
+                               //   Note:  Can't be used in conjunction with RAM_FAST
+							   //   Best to set via Makefile.posix, as there's a bunch more files to compile & link...
+#endif
 #define DEBUGKEY 4			// Key to trigger the debugger. 4 = ^D
 
 //#define CONSOLELOG		// Writes debug information to console instead of file

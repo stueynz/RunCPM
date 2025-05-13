@@ -57,7 +57,9 @@ int ui_error( ui_error_level severity, const char *format, ... )
 int ui_verror( ui_error_level severity, const char *format, va_list ap )
      GCC_PRINTF( 2, 0 );
      
+/* functions added by Stuart */
 void ui_debugger_disassemble(uint16_t address);
+void ui_debugger_dump(uint16_t address);
 void ui_debugger_status();
 
 #endif			/* #ifndef FUSE_UI_H */

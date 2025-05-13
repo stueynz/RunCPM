@@ -79,6 +79,9 @@ int debugger_expression_deparse( char *buffer, size_t length,
 /* Register an event type with the debugger */
 int debugger_event_register( const char *type, const char *detail );
 
+/* Start execution from given address */
+int debugger_go( uint16_t address );
+
 /* Fire off a debugger event */
 void debugger_event( int event_code );
 

@@ -23,18 +23,6 @@
    Borrowed from  https://github.com/speccytools/fuse/ by Stuart McGrigor
 */
 
-/*
-#include "config.h"
-
-
-#include "libspectrum.h"
-
-#include "debugger_internals.h"
-#include "ui/ui.h"
-#include "utils.h"
-
-*/
-
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
