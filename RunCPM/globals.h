@@ -7,7 +7,7 @@
 #endif
 
 /* Definition for enabling incrementing the R register for each M1 cycle */
-#define DO_INCR
+#define DO_INCR // Loses a bit of performance in favor or realistic R register emulation
 
 /* Definitions for enabling PUN: and LST: devices */
 #define USE_PUN	// The pun.txt and lst.txt files will appear on drive A: user 0
@@ -36,8 +36,12 @@
 #define LogName "RunCPM.log"
 
 /* RunCPM version for the greeting header */
-#define VERSION	"6.6"
-#define VersionBCD 0x66
+#define VERSION	"6.7"
+#define VersionBCD 0x67
+
+/* Definition of which BDOS to use (not for Internal CCP, set to 60K CCPs by default) */
+//#define ABDOS				// Based on work by Pavel Zampach (https://www.chstercius.cz/runcpm/)
+// This requires ABDOS.SYS to be present on A: user 0 - see 'abdos' folder under 'tools'
 
 /* Definition of which CCP to use (must define only one) */
 #define CCP_INTERNAL		// If this is defined, an internal CCP will emulated
@@ -95,14 +99,25 @@
 #error No CCP defined
 #endif
 //
+#ifdef CCP_INTERNAL
+	#ifdef ABDOS
+		#error Internal CCP does not support ABDOS
+	#endif
+#endif
+
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 #ifdef DEBUG
-#define DBG " - DEBUG"
+	#define DBG " - DEBUG"
 #else
-#define DBG
+	#define DBG
 #endif
-#define CCPHEAD		"\r\nRunCPM Version " VERSION " (CP/M " STR(TPASIZE) "K)" DBG "\r\n"
+#ifdef ABDOS
+	#define ABD " (ABDOS)"
+#else
+	#define ABD
+#endif
+#define CCPHEAD		"\r\nRunCPM Version " VERSION " (CP/M " STR(TPASIZE) "K)" DBG ABD "\r\n"
 
 #define NOSLASH						// Will translate '/' to '_' on filenames to prevent directory errors
 
@@ -222,8 +237,13 @@ extern void   _RamWrite16(uint16 address, uint16 value);
 #define DPBaddr (BIOSpage + 128)	// Address of the Disk Parameter Block (Hardcoded in BIOS)
 #define DPHaddr (DPBaddr + 15)		// Address of the Disk Parameter Header 
 
-#define SCBaddr (BDOSpage + 3)		// Address of the System Control Block
-#define tmpFCB  (BDOSpage + 16)		// Address of the temporary FCB
+#ifdef ABDOS
+	#define SCBaddr (BDOSpage + 480)	// Address of the System Control Block
+	#define tmpFCB  (BDOSpage + 444)	// Address of the temporary FCB
+#else
+	#define SCBaddr (BDOSpage + 3)		// Address of the System Control Block
+	#define tmpFCB  (BDOSpage + 16)		// Address of the temporary FCB
+#endif
 
 /* Definition of global variables */
 static uint8	filename[17];		// Current filename in host filesystem format

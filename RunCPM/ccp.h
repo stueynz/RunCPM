@@ -15,6 +15,8 @@
 #define defDMA	0x0080					// Default DMA address
 #define defLoad	0x0100					// Default load address
 
+#define Internals                       // Define to have internal commands
+
 // CCP global variables
 uint8 pgSize = 22;              // for TYPE
 uint8 curDrive = 0;             // 0 -> 15 = A -> P	.. Current drive for the CCP (same as RAM[DSKByte])
@@ -28,6 +30,7 @@ uint8 blen = 0;                 // Actual size of the typed command line (size o
 
 static const char *Commands[] =
 {
+#ifdef Internals
     // Standard CP/M commands
     "DIR",
     "ERA",
@@ -41,6 +44,7 @@ static const char *Commands[] =
     "DEL",
     "EXIT",
     "PAGE",
+#endif
     "VOL",
     "?",
     NULL
@@ -69,7 +73,7 @@ uint8 _ccp_cnum(void) {
     uint8 result = 255;
     uint8 command[9];
     uint8 i = 0;
-    
+
     if (!_RamRead(CmdFCB)) {    // If a drive was set, then the command is external
         while (i < 8 && _RamRead(CmdFCB + i + 1) != ' ') {
             command[i] = _RamRead(CmdFCB + i + 1);
@@ -86,6 +90,10 @@ uint8 _ccp_cnum(void) {
             ++i;
         }
     }
+#ifndef Internals
+    if (result != 255)
+        result += 10;
+#endif
     return (result);
 } // _ccp_cnum
 
@@ -208,6 +216,7 @@ uint16 _ccp_fcbtonum() {
     return (n);
 } // _ccp_fcbtonum
 
+#ifdef Internals
 // DIR command
 void _ccp_dir(void) {
     uint8 i;
@@ -364,6 +373,7 @@ uint8 _ccp_page(void) {
     }
     return (error);
 } // _ccp_page
+#endif
 
 // VOL command
 uint8 _ccp_vol(void) {
@@ -773,6 +783,7 @@ void _ccp(void) {
             i = FALSE;                                  // Checks if the command is valid and executes
             
             switch (_ccp_cnum()) {
+#ifdef Internals
                 // Standard CP/M commands
                 case 0: {           // DIR
                     _ccp_dir();
@@ -826,6 +837,7 @@ void _ccp(void) {
                     i = _ccp_page();
                     break;
                 }
+#endif
                     
                 case 10: {          // VOL
                     i = _ccp_vol();
@@ -836,7 +848,7 @@ void _ccp(void) {
                     i = _ccp_hlp();
                     break;
                 }
-                    
+
                 // External commands
                 case 255: {         // It is an external command
                     i = _ccp_ext();

@@ -45,33 +45,26 @@ const char* iLogTxt;
 /*
 	Functions needed by the soft CPU implementation
 */
-void cpu_out(const uint32 Port, const uint32 Value) {
-	if (Port == 0xFF) {
+void cpu_out(const uint32 p, const uint32 v) {
+	if (p == 0xFF) {
 		_Bios();
 	} else {
-		_HardwareOut(Port, Value);
+		_HardwareOut(p, v);
 	}
 }
 
-uint32 cpu_in(const uint32 Port) {
-	uint32 Result;
-	if (Port == 0xFF) {
+uint32 cpu_in(const uint32 p) {
+	uint32 v;
+	if (p == 0xFF) {
 		_Bdos();
-		Result = HIGH_REGISTER(AF);
+		v = HIGH_REGISTER(AF);
 	} else {
-		Result = _HardwareIn(Port);
+		v = _HardwareIn(p);
 	}
-	return(Result);
+	return(v);
 }
 
 /* Z80 Custom soft core */
-
-/* simulator stop codes */
-#define STOP_HALT       0   /* HALT                                             */
-#define STOP_IBKPT      1   /* breakpoint   (program counter)                   */
-#define STOP_MEM        2   /* breakpoint   (memory access)                     */
-#define STOP_INSTR      3   /* breakpoint   (instruction access)                */
-#define STOP_OPCODE     4   /* invalid operation encountered (8080, Z80, 8086)  */
 
 #define ADDRMASK        0xffff
 
@@ -84,8 +77,6 @@ uint32 cpu_in(const uint32 Port) {
 
 #define SETFLAG(f,c)    (AF = (c) ? AF | FLAG_ ## f : AF & ~FLAG_ ## f)
 #define TSTFLAG(f)      ((AF & FLAG_ ## f) != 0)
-
-#define PARITY(x)   parityTable[(x) & 0xff]
 
 #define SET_PVS(s)  (((cbits >> 6) ^ (cbits >> 5)) & 4)
 #define SET_PV      (SET_PVS(sum))
@@ -107,9 +98,9 @@ uint32 cpu_in(const uint32 Port) {
 
 #define CALLC(cond) {                           \
     if (cond) {                                 \
-        uint32 addr = GET_WORD(PC);             \
+        uint32 a = GET_WORD(PC);                \
         PUSH(PC + 2);                           \
-        PC = addr;                              \
+        PC = a;                                 \
     } else {                                    \
 		PC++;                                   \
         PC++;                                   \
@@ -142,7 +133,10 @@ rrdrldTable[i]          0..255  (i << 8) | (i & 0xa8) | (((i & 0xff) == 0) << 6)
 cpTable[i]              0..255  (i & 0x80) | (((i & 0xff) == 0) << 6)
 */
 
+#define preTables // Use precomputed tables (increases the size of the binary by about 4k)
+
 /* parityTable[i] = (number of 1's in i is odd) ? 0 : 4, i = 0..255 */
+#ifdef preTables
 static const uint8 parityTable[256] = {
 	4,0,0,4,0,4,4,0,0,4,4,0,4,0,0,4,
 	0,4,4,0,4,0,0,4,4,0,0,4,0,4,4,0,
@@ -905,6 +899,73 @@ static const uint8 cpTable[256] = {
 	128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
 	128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,128,
 };
+#endif
+
+#ifndef preTables
+static uint8 parityTable[256];
+static uint8 incTable[257];
+static uint8 decTable[256];
+static uint8 cbitsTable[512];
+static uint16 cbitsDup8Table[512];
+static uint8 cbitsDup16Table[512];
+static uint8 cbits2Table[512];
+static uint16 rrcaTable[256];
+static uint16 rraTable[256];
+static uint16 addTable[512];
+static uint16 subTable[256];
+static uint16 andTable[256];
+static uint16 xororTable[256];
+static uint8 rotateShiftTable[256];
+static uint8 incZ80Table[257];
+static uint8 decZ80Table[256];
+static uint8 cbitsZ80Table[512];
+static uint8 cbitsZ80DupTable[512];
+static uint8 cbits2Z80Table[512];
+static uint8 cbits2Z80DupTable[512];
+static uint8 negTable[256];
+static uint16 rrdrldTable[256];
+static uint8 cpTable[256];
+
+void initTables(void) {
+	// 256 bytes tables
+	for (int i = 0; i < 256; i++) {
+		char c = 0;
+		for (int j = 0; j < 8; j++) {
+			if (i & (1 << j))
+				c++;
+		}
+		parityTable[i] = (c & 1) ? 0 : 4;
+		decTable[i] = (i & 0xa8) | (((i & 0xff) == 0) << 6) | (((i & 0xf) == 0xf) << 4) | 2;
+		rrcaTable[i] = ((i & 1) << 15) | ((i >> 1) << 8) | ((i >> 1) & 0x28) | (i & 1);
+		rraTable[i] = ((i >> 1) << 8) | ((i >> 1) & 0x28) | (i & 1);
+		subTable[i] = ((i & 0xff) << 8) | (i & 0xa8) | (((i & 0xff) == 0) << 6) | 2;
+		andTable[i] = (i << 8) | (i & 0xa8) | ((i == 0) << 6) | 0x10 | parityTable[i];
+		xororTable[i] = (i << 8) | (i & 0xa8) | ((i == 0) << 6) | parityTable[i];
+		rotateShiftTable[i] = (i & 0xa8) | (((i & 0xff) == 0) << 6) | parityTable[i & 0xff];
+		decZ80Table[i] = (i & 0xa8) | (((i & 0xff) == 0) << 6) | (((i & 0xf) == 0xf) << 4) | ((i == 0x7f) << 2) | 2;
+		negTable[i] = (((i & 0x0f) != 0) << 4) | ((i == 0x80) << 2) | 2 | (i != 0);
+		rrdrldTable[i] = (i << 8) | (i & 0xa8) | (((i & 0xff) == 0) << 6) | parityTable[i];
+		cpTable[i] = (i & 0x80) | (((i & 0xff) == 0) << 6);
+	}
+	// 257 bytes tables
+	for (int i = 0; i < 257; i++) {
+		incTable[i] = (i & 0xa8) | (((i & 0xff) == 0) << 6) | (((i & 0xf) == 0) << 4);
+		incZ80Table[i] = (i & 0xa8) | (((i & 0xff) == 0) << 6) | (((i & 0xf) == 0) << 4) | ((i == 0x80) << 2);
+	}
+	// 512 bytes tables
+	for (int i = 0; i < 512; i++) {
+		cbitsTable[i] = (i & 0x10) | ((i >> 8) & 1);
+		cbitsDup8Table[i] = (i & 0x10) | ((i >> 8) & 1) | ((i & 0xff) << 8) | (i & 0xa8) | (((i & 0xff) == 0) << 6);
+		cbitsDup16Table[i] = (i & 0x10) | ((i >> 8) & 1) | (i & 0x28);
+		cbits2Table[i] = (i & 0x10) | ((i >> 8) & 1) | 2;
+		addTable[i] = ((i & 0xff) << 8) | (i & 0xa8) | (((i & 0xff) == 0) << 6);
+		cbitsZ80Table[i] = (i & 0x10) | (((i >> 6) ^ (i >> 5)) & 4) | ((i >> 8) & 1);
+		cbitsZ80DupTable[i] = (i & 0x10) | (((i >> 6) ^ (i >> 5)) & 4) | ((i >> 8) & 1) | (i & 0xa8);
+		cbits2Z80Table[i] = (i & 0x10) | (((i >> 6) ^ (i >> 5)) & 4) | ((i >> 8) & 1) | 2;
+		cbits2Z80DupTable[i] = (i & 0x10) | (((i >> 6) ^ (i >> 5)) & 4) | ((i >> 8) & 1) | 2 | (i & 0xa8);
+	}
+}
+#endif
 
 #if defined(DEBUG) || defined(iDEBUG)
 static const char* Mnemonics[256] =
@@ -1132,21 +1193,21 @@ int32 Watch = -1;
 #endif
 
 /* Memory management    */
-static uint8 GET_BYTE(uint32 Addr) {
-	return _RamRead(Addr & ADDRMASK);
+static uint8 GET_BYTE(uint16 a) {
+	return _RamRead(a);
 }
 
-static void PUT_BYTE(uint32 Addr, uint32 Value) {
-	_RamWrite(Addr & ADDRMASK, Value);
+static void PUT_BYTE(uint16 a, uint8 v) {
+	_RamWrite(a, v);
 }
 
-static uint16 GET_WORD(uint32 a) {
-	return GET_BYTE(a) | (GET_BYTE(a + 1) << 8);
+static uint16 GET_WORD(uint16 a) {
+	return _RamRead(a) | (_RamRead(a + 1) << 8);
 }
 
-static void PUT_WORD(uint32 Addr, uint32 Value) {
-	_RamWrite(Addr, Value);
-	_RamWrite(++Addr, Value >> 8);
+static void PUT_WORD(uint16 a, uint32 v) {
+	_RamWrite(a, v);
+	_RamWrite(++a, v >> 8);
 }
 
 #define RAM_MM(a)   GET_BYTE(a--)
@@ -1196,6 +1257,10 @@ static inline void Z80reset(void) {
 	Debug = 0;
 	Break = -1;
 	Step = -1;
+
+	#ifndef preTables
+		initTables();
+	#endif
 }
 
 #ifdef DEBUG
@@ -1619,7 +1684,7 @@ static inline void Z80run(void) {
 	uint32 acu;
 	uint32 sum;
 	uint32 cbits;
-	uint32 op;
+	uint32 op = 0;
 	uint32 adr;
 
 	/* main instruction fetch/decode loop */
@@ -1690,7 +1755,7 @@ static inline void Z80run(void) {
 
 		case 0x01:      /* LD BC,nnnn */
 			BC = GET_WORD(PC++);
-			PC++;
+			++PC;
 			break;
 
 		case 0x02:      /* LD (BC),A */
@@ -1773,7 +1838,7 @@ static inline void Z80run(void) {
 
 		case 0x11:      /* LD DE,nnnn */
 			DE = GET_WORD(PC++);
-			PC++;
+			++PC;
 			break;
 
 		case 0x12:      /* LD (DE),A */
@@ -1854,12 +1919,12 @@ static inline void Z80run(void) {
 
 		case 0x21:      /* LD HL,nnnn */
 			HL = GET_WORD(PC++);
-			PC++;
+			++PC;
 			break;
 
 		case 0x22:      /* LD (nnnn),HL */
 			PUT_WORD(GET_WORD(PC++), HL);
-			PC++;
+			++PC;
 			break;
 
 		case 0x23:      /* INC HL */
@@ -1923,7 +1988,7 @@ static inline void Z80run(void) {
 
 		case 0x2a:      /* LD HL,(nnnn) */
 			HL = GET_WORD(GET_WORD(PC++));
-			PC++;
+			++PC;
 			break;
 
 		case 0x2b:      /* DEC HL */
@@ -1959,12 +2024,12 @@ static inline void Z80run(void) {
 
 		case 0x31:      /* LD SP,nnnn */
 			SP = GET_WORD(PC++);
-			PC++;
+			++PC;
 			break;
 
 		case 0x32:      /* LD (nnnn),A */
 			PUT_BYTE(GET_WORD(PC++), HIGH_REGISTER(AF));
-			PC++;
+			++PC;
 			break;
 
 		case 0x33:      /* INC SP */
@@ -2008,7 +2073,7 @@ static inline void Z80run(void) {
 
 		case 0x3a:      /* LD A,(nnnn) */
 			SET_HIGH_REGISTER(AF, GET_BYTE(GET_WORD(PC++)));
-			PC++;
+			++PC;
 			break;
 
 		case 0x3b:      /* DEC SP */
@@ -2257,7 +2322,7 @@ static inline void Z80run(void) {
 	#endif
 #endif
 			--PC;
-			goto end_decode;
+			Status = 1;
 			break;
 
 		case 0x77:      /* LD (HL),A */
@@ -2765,45 +2830,38 @@ static inline void Z80run(void) {
 			switch ((op = GET_BYTE(PC)) & 7) {
 
 			case 0:
-				++PC;
 				acu = HIGH_REGISTER(BC);
 				break;
 
 			case 1:
-				++PC;
 				acu = LOW_REGISTER(BC);
 				break;
 
 			case 2:
-				++PC;
 				acu = HIGH_REGISTER(DE);
 				break;
 
 			case 3:
-				++PC;
 				acu = LOW_REGISTER(DE);
 				break;
 
 			case 4:
-				++PC;
 				acu = HIGH_REGISTER(HL);
 				break;
 
 			case 5:
-				++PC;
 				acu = LOW_REGISTER(HL);
 				break;
 
 			case 6:
-				++PC;
 				acu = GET_BYTE(adr);
 				break;
 
-			case 7:
-				++PC;
+			default:
 				acu = HIGH_REGISTER(AF);
 				break;
 			}
+			++PC;
 			switch (op & 0xc0) {
 
 			case 0x00:  /* shift/rotate */
@@ -2904,7 +2962,7 @@ static inline void Z80run(void) {
 				PUT_BYTE(adr, temp);
 				break;
 
-			case 7:
+			default:
 				SET_HIGH_REGISTER(AF, temp);
 				break;
 			}
@@ -2975,15 +3033,15 @@ static inline void Z80run(void) {
 			break;
 
 		case 0xd9:      /* EXX */
-			temp = BC;
-			BC = BC1;
-			BC1 = temp;
-			temp = DE;
-			DE = DE1;
-			DE1 = temp;
-			temp = HL;
-			HL = HL1;
-			HL1 = temp;
+			BC ^= BC1;
+			BC1 ^= BC;
+			BC ^= BC1;
+			DE ^= DE1;
+			DE1 ^= DE;
+			DE ^= DE1;
+			HL ^= HL1;
+			HL1 ^= HL;
+			HL ^= HL1;
 			break;
 
 		case 0xda:      /* JP C,nnnn */
@@ -3020,12 +3078,12 @@ static inline void Z80run(void) {
 
 			case 0x21:      /* LD IX,nnnn */
 				IX = GET_WORD(PC++);
-				PC++;
+				++PC;
 				break;
 
 			case 0x22:      /* LD (nnnn),IX */
 				PUT_WORD(GET_WORD(PC++), IX);
-				PC++;
+				++PC;
 				break;
 
 			case 0x23:      /* INC IX */
@@ -3055,7 +3113,7 @@ static inline void Z80run(void) {
 
 			case 0x2a:      /* LD IX,(nnnn) */
 				IX = GET_WORD(GET_WORD(PC++));
-				PC++;
+				++PC;
 				break;
 
 			case 0x2b:      /* DEC IX */
@@ -3404,45 +3462,38 @@ static inline void Z80run(void) {
 				switch ((op = GET_BYTE(PC)) & 7) {
 
 				case 0:
-					++PC;
 					acu = HIGH_REGISTER(BC);
 					break;
 
 				case 1:
-					++PC;
 					acu = LOW_REGISTER(BC);
 					break;
 
 				case 2:
-					++PC;
 					acu = HIGH_REGISTER(DE);
 					break;
 
 				case 3:
-					++PC;
 					acu = LOW_REGISTER(DE);
 					break;
 
 				case 4:
-					++PC;
 					acu = HIGH_REGISTER(HL);
 					break;
 
 				case 5:
-					++PC;
 					acu = LOW_REGISTER(HL);
 					break;
 
 				case 6:
-					++PC;
 					acu = GET_BYTE(adr);
 					break;
 
-				case 7:
-					++PC;
+				default:
 					acu = HIGH_REGISTER(AF);
 					break;
 				}
+				++PC;
 				switch (op & 0xc0) {
 
 				case 0x00:  /* shift/rotate */
@@ -3543,7 +3594,7 @@ static inline void Z80run(void) {
 					PUT_BYTE(adr, temp);
 					break;
 
-				case 7:
+				default:
 					SET_HIGH_REGISTER(AF, temp);
 					break;
 				}
@@ -3673,7 +3724,7 @@ static inline void Z80run(void) {
 
 			case 0x43:      /* LD (nnnn),BC */
 				PUT_WORD(GET_WORD(PC++), BC);
-				PC++;
+				++PC;
 				break;
 
 			case 0x44:      /* NEG */
@@ -3742,7 +3793,7 @@ static inline void Z80run(void) {
 
 			case 0x4b:      /* LD BC,(nnnn) */
 				BC = GET_WORD(GET_WORD(PC++));
-				PC++;
+				++PC;
 				break;
 
 			case 0x4d:      /* RETI */
@@ -3775,7 +3826,7 @@ static inline void Z80run(void) {
 
 			case 0x53:      /* LD (nnnn),DE */
 				PUT_WORD(GET_WORD(PC++), DE);
-				PC++;
+				++PC;
 				break;
 
 			case 0x56:      /* IM 1 */
@@ -3807,7 +3858,7 @@ static inline void Z80run(void) {
 
 			case 0x5b:      /* LD DE,(nnnn) */
 				DE = GET_WORD(GET_WORD(PC++));
-				PC++;
+				++PC;
 				break;
 
 			case 0x5e:      /* IM 2 */
@@ -3839,7 +3890,7 @@ static inline void Z80run(void) {
 
 			case 0x63:      /* LD (nnnn),HL */
 				PUT_WORD(GET_WORD(PC++), HL);
-				PC++;
+				++PC;
 				break;
 
 			case 0x67:      /* RRD */
@@ -3869,7 +3920,7 @@ static inline void Z80run(void) {
 
 			case 0x6b:      /* LD HL,(nnnn) */
 				HL = GET_WORD(GET_WORD(PC++));
-				PC++;
+				++PC;
 				break;
 
 			case 0x6f:      /* RLD */
@@ -3900,7 +3951,7 @@ static inline void Z80run(void) {
 
 			case 0x73:      /* LD (nnnn),SP */
 				PUT_WORD(GET_WORD(PC++), SP);
-				PC++;
+				++PC;
 				break;
 
 			case 0x78:      /* IN A,(C) */
@@ -3924,7 +3975,7 @@ static inline void Z80run(void) {
 
 			case 0x7b:      /* LD SP,(nnnn) */
 				SP = GET_WORD(GET_WORD(PC++));
-				PC++;
+				++PC;
 				break;
 
 			case 0xa0:      /* LDI */
@@ -4244,13 +4295,13 @@ static inline void Z80run(void) {
 
 			case 0x21:      /* LD IY,nnnn */
 				IY = GET_WORD(PC++);
-				PC++;
+				++PC;
 				break;
 
 			case 0x22:      /* LD (nnnn),IY */
 				temp = GET_WORD(PC++);
 				PUT_WORD(temp, IY);
-				PC++;
+				++PC;
 				break;
 
 			case 0x23:      /* INC IY */
@@ -4280,7 +4331,7 @@ static inline void Z80run(void) {
 
 			case 0x2a:      /* LD IY,(nnnn) */
 				IY = GET_WORD(GET_WORD(PC++));
-				PC++;
+				++PC;
 				break;
 
 			case 0x2b:      /* DEC IY */
@@ -4629,45 +4680,38 @@ static inline void Z80run(void) {
 				switch ((op = GET_BYTE(PC)) & 7) {
 
 				case 0:
-					++PC;
 					acu = HIGH_REGISTER(BC);
 					break;
 
 				case 1:
-					++PC;
 					acu = LOW_REGISTER(BC);
 					break;
 
 				case 2:
-					++PC;
 					acu = HIGH_REGISTER(DE);
 					break;
 
 				case 3:
-					++PC;
 					acu = LOW_REGISTER(DE);
 					break;
 
 				case 4:
-					++PC;
 					acu = HIGH_REGISTER(HL);
 					break;
 
 				case 5:
-					++PC;
 					acu = LOW_REGISTER(HL);
 					break;
 
 				case 6:
-					++PC;
 					acu = GET_BYTE(adr);
 					break;
 
-				case 7:
-					++PC;
+				default:
 					acu = HIGH_REGISTER(AF);
 					break;
 				}
+				++PC;
 				switch (op & 0xc0) {
 
 				case 0x00:  /* shift/rotate */
@@ -4768,7 +4812,7 @@ static inline void Z80run(void) {
 					PUT_BYTE(adr, temp);
 					break;
 
-				case 7:
+				default:
 					SET_HIGH_REGISTER(AF, temp);
 					break;
 				}
@@ -4816,8 +4860,6 @@ static inline void Z80run(void) {
 			PC = 0x38;
 		}
 	}
-end_decode:
-	;
 }
 
 
