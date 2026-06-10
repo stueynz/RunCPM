@@ -34,6 +34,7 @@
 #include <string.h>
 #include <errno.h>
 #include <semaphore.h>
+#include <signal.h>
 #include <sched.h>
 
 #include <glib.h>
@@ -69,18 +70,14 @@ extern int32 AF1; /* alternate AF register                        */
 extern int32 BC1; /* alternate BC register                        */
 extern int32 DE1; /* alternate DE register                        */
 extern int32 HL1; /* alternate HL register                        */
+extern int32 IR;  /* interrupt & refresh register                 */
 
-typedef enum ui_error_level {
-
-  UI_ERROR_INFO,		/* Informational message */
-  UI_ERROR_WARNING,		/* Something is wrong, but it's not that
-				   important */
-  UI_ERROR_ERROR,		/* An actual error */
-
-} ui_error_level;
+#include "ui.h"
 
 /*
  ** ==================================================================================================== */
+
+int gdbPort = 0;  // set from argv; what port is GDB server available on ??
 
 typedef uint8_t (*trapped_action_t)(const void* data, void* response);
 
@@ -116,7 +113,8 @@ static int32* registers[] = {
     &AF1,
     &BC1,
     &DE1,
-    &HL1
+    &HL1,
+    &IR
 };
 
 static uint8_t gdbserver_detrap();
@@ -188,10 +186,13 @@ static void process_query(char *payload)
     }
     if (!strcmp(name, "Offsets"))
         write_packet("");
+
     if (!strcmp(name, "Supported"))
         write_packet("PacketSize=4000;qXfer:features:read+;qXfer:auxv:read+");
+
     if (!strcmp(name, "Symbol"))
         write_packet("OK");
+
     if (name == strstr(name, "ThreadExtraInfo"))
     {
         args = payload;
@@ -200,6 +201,7 @@ static void process_query(char *payload)
     }
     if (!strcmp(name, "TStatus"))
         write_packet("");
+
     if (!strcmp(name, "Xfer"))
     {
         name = args;
@@ -208,11 +210,13 @@ static void process_query(char *payload)
         return process_xfer(name, args);
     }
     if (!strcmp(name, "fThreadInfo"))
-    {
         write_packet("mp01.01");
-    }
+
     if (!strcmp(name, "sThreadInfo"))
         write_packet("l");
+
+    if (!strcmp(name, "ExecAndArgs")) // Current executable & args
+        write_packet("u");            //   unset (for now)
 }
 
 static void process_vpacket(char *payload)
@@ -286,12 +290,13 @@ static uint8_t process_packet()
         return 0;
     }
   
-    printf("r: %.*s\n", inbuf_size, inbuf);
-  
+    fprintf(stderr, "r[%03d]: %.*s\n", inbuf_size, inbuf_size, inbuf);
+
     if (inbuf_size >= 1 && *inbuf == INTERRUPT_CHAR)
     {
         inbuf_erase_head(1);
         debugger_mode = DEBUGGER_MODE_HALTED;
+        fprintf(stderr, "GDB trap requested\n");
         return 1;
     }
   
@@ -590,28 +595,28 @@ static void* network_thread(void* arg)
         setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &maxpkt, sizeof(int));
 #endif
 
-        printf("Accepted new socket: %d\n", sock);
+        fprintf(stderr, "Accepted new socket: %d\n", sock);
 
         gdbserver_client_socket = sock;
         gdbserver_do_not_report_trap = 1;
         num_attached_clients++;
         debugger_mode = DEBUGGER_MODE_HALTED;
 
-        // property wait for it to trap
+/*
+        // properly wait for it to trap
         pthread_mutex_lock(&trap_process_mutex);
         while (!gdbserver_trapped)
         {
             pthread_cond_wait(&trapped_cond, &trap_process_mutex);
         }
         pthread_mutex_unlock(&trap_process_mutex);
-
-    
+*/
         int ret;
-        while ((ret = process_network(gdbserver_client_socket)) == 0) ;
-        printf("Socket closed: %d\n", gdbserver_client_socket);
+        while ((ret = process_network(gdbserver_client_socket)) == 0) ;   // keep processing GDB commands until socket is closed.
+        fprintf(stderr, "Socket closed: %d\n", gdbserver_client_socket);
         
         debugger_breakpoint_remove_all();
-        printf("Deleted all breakpoints.\n");
+        fprintf(stderr, "Deleted all breakpoints.\n");
         
         close(gdbserver_client_socket);
         num_attached_clients--;
@@ -681,6 +686,8 @@ int gdbserver_start( int port )
 
     gdbserver_port = port;
     gdbserver_debugging_enabled = 1;
+
+    fprintf(stderr, "GDB Server bound and listening on port %0d\n", port);
     return 0;
 }
 
@@ -700,6 +707,8 @@ void gdbserver_stop()
     gdbserver_debugging_enabled = 0;
     pthread_join(network_thread_id, NULL);
     // utils_networking_end();  -- Not required when running under POSIX
+
+    fprintf(stderr, "GDB Server unbound from port %0d\n", gdbserver_port);
 }
 
 /*
@@ -920,7 +929,7 @@ static uint8_t action_set_breakpoint(const void* arg, void* response)
     {
         strcpy(resp_buff, "OK");
     }
-  
+    ui_debugger_list_breakpoints();
     return 0;
 }
 
@@ -955,6 +964,7 @@ static uint8_t action_remove_breakpoint(const void* arg, void* response)
         strcpy(resp_buff, "E01");
     }
   
+    ui_debugger_list_breakpoints();
     return 0;
 }
 
@@ -983,8 +993,10 @@ static uint8_t action_step_instruction(const void* arg, void* response)
     return 0;
 }
 
-int gdbserver_activate()
+// attempt to activate the gdb server / debugger
+int gdbserver_activate(int onBreakpoint)
 {
+    // If we've got no attached GDB clients then we probably don't want to trap
     if (num_attached_clients == 0)
     {
         // No connected clients, skipping over halt
@@ -992,15 +1004,36 @@ int gdbserver_activate()
         if (break_on_no_clients == 0)
         {
             break_on_no_clients = 1;
-            printf("Execution stop ignored: no connected clients.\n");
+            fprintf(stderr, "Execution stop ignored: no connected clients.\n");
         }
         return 0;
     }
-
     break_on_no_clients = 0;
-    printf("Execution stopped: trapped.\n");
 
-    if (gdbserver_do_not_report_trap == 0)
+    // What mode are we in??
+    switch(debugger_mode) {
+
+        case DEBUGGER_MODE_INACTIVE:
+            // debugger is inactive (we've got no breakpoints set) so there's no reason to halt the processor
+            return 0;
+            break;
+
+        case DEBUGGER_MODE_ACTIVE:
+            // debugger is active ... so we only halt the processor if we're here because of a breakpoint firing
+            //  otherwise we'll break on every instruction... which is a real drag when they've given a CONTinue command
+            if(!onBreakpoint) {
+                return 0;
+            }
+            break;
+
+        case DEBUGGER_MODE_HALTED:
+            // gdb client has requested a HALT
+            break;
+    }
+
+    fprintf(stderr, "Execution stopped debugMode:%02d.\n", debugger_mode);
+
+    if (gdbserver_do_not_report_trap == 0 || debugger_mode == DEBUGGER_MODE_HALTED)
     {
         pthread_mutex_lock(&network_mutex);
         inbuf_reset();
@@ -1046,16 +1079,18 @@ int gdbserver_activate()
 
     if (halt == 0)
     {
-        debugger_mode = DEBUGGER_MODE_ACTIVE;
-        printf("Execution resumed.\n");
+        debugger_run();
+        fprintf(stderr, "Execution resumed.\n");
     }
     else
     {
         debugger_mode = DEBUGGER_MODE_HALTED;
+        fprintf(stderr, "Execution trapped.\n");
         gdbserver_trapped = 0;
     }
 
     pthread_mutex_unlock(&trap_process_mutex);
 
-    return 0;
+    // We just did the thing
+    return 1;
 }

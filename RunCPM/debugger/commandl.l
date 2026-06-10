@@ -59,10 +59,10 @@ cl|cle|clea|clear { return CLEAR; }
 del|dele|delet|delete { return DEBUGGER_DELETE; }
 di|dis|disa|disas|disass|disasse|disassm|disassmb|diasassmbl|disassemble { return DISASSEMBLE; }
 du|dum|dump { return DUMP; }
-ev|eve|even|event { return EVENT; }
 ex|exi|exit { return EXIT; }
 fi|fin|fini|finis|finish { return FINISH; }
 go { return GO; }
+he|hel|help {return HELP; }
 if { return IF; }
 ig|ign|igno|ignor|ignore { return DEBUGGER_IGNORE; }
 n|ne|nex|next { return NEXT; }
@@ -74,8 +74,11 @@ se|set { return SET; }
 s|st|ste|step { return STEP; }
 sta|stat|status { return STATUS; }
 t|tb|tbr|tbre|tbrea|tbreak|tbreakp|tbreakpo|tbreakpoi|tbreakpoin|tbreakpoint { return TBREAK; }
-ti|tim|time { return TIME; }
 w|wr|wri|writ|write { return WRITE; }
+
+ser|serv|serve|server { return SERVER; }
+hal|halt { return HALT; }
+
 
 "("		{ return '('; }
 ")"		{ return ')'; }

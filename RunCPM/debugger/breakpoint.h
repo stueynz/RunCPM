@@ -118,7 +118,8 @@ typedef struct debugger_breakpoint {
 /* The current breakpoints */
 extern GSList *debugger_breakpoints;
 
-int debugger_check( debugger_breakpoint_type type, uint32_t value );
+void
+debugger_check( debugger_breakpoint_type type, uint32_t value );
 
 void
 debugger_breakpoint_reduce_tstates( uint32_t tstates );

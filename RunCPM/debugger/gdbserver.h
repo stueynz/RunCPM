@@ -28,7 +28,7 @@
 void gdbserver_init();
 int gdbserver_start( int port );
 void gdbserver_stop();
-int gdbserver_activate();
+int gdbserver_activate(int breakpoint);
 
 //void gdbserver_refresh_status();
 

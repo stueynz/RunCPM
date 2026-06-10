@@ -95,22 +95,25 @@ debugger_register_startup( void )
 }
 */
 
-int
-is_debugger_enabled()
-{
-  return gdbserver_debugging_enabled;
-}
-
+// inline debugger control
 extern uint32_t Debug, Step;
 
 /* Activate the debugger */
-int
+void
 debugger_trap( void )
 {
+    // Do we have GDB Server listening ??
     if (gdbserver_debugging_enabled) {
-        return gdbserver_activate();
+
+        // If GDB server activates then no-need for the inline debugger
+        if(gdbserver_activate(TRUE)) {
+          return;
+        }
     }
-    return 0;
+
+    // No GDB Server (or no connected clients), so use the built in debugger
+    Debug=1;
+    return;
 }
 
 /* Step - execute one instruction */
@@ -161,11 +164,11 @@ debugger_run( void )
 {
   debugger_mode = debugger_breakpoints ?
                   DEBUGGER_MODE_ACTIVE :
-                  DEBUGGER_MODE_INACTIVE;
-  if (gdbserver_debugging_enabled)
-  {
-    return 0;
-  }
+                  DEBUGGER_MODE_INACTIVE;    //  debugger is active if we've got at least one breakpoint
+  // if (gdbserver_debugging_enabled)
+  // {
+  //   return 0;
+  // }
 
   // Not running via GDB server - so turn off main extended debugger
   Debug = 0;

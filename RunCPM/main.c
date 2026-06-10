@@ -46,6 +46,7 @@ int lst_open = FALSE;
 
 #ifdef EXTENDED_DEBUG
 #include "debugger/debugger.h"
+#include "debugger/gdbserver.h"
 
 extern void ic_initialize();
 #endif
@@ -66,16 +67,25 @@ int main(int argc, char* argv[]) {
 	_sys_deletefile((uint8*)LogName);
 #endif
 
-#ifdef EXTENDED_DEBUG
-	debugger_init();
-	z80_debugger_variables_init();  // Tell the debugger about all the Z80 registers
-	ic_initialize();                // libreadline replacement -- that actually works !!
-#endif
-
 #ifdef STREAMIO
 	_host_init(argc, &argv[0]);
 	_streamioInit();
 #endif
+
+#ifdef EXTENDED_DEBUG
+	debugger_init();
+	z80_debugger_variables_init();  // Tell the debugger about all the Z80 registers
+	ic_initialize();                // libreadline replacement -- that actually works !!
+
+	gdbserver_init();
+#ifndef STREAMIO
+	_parse_options(argc, &argv[0]);    // We didn't call host_init(), so we need to check for GDB Server port...
+#endif
+
+	if(gdbPort > 0)
+		gdbserver_start(gdbPort);
+#endif
+
 	_console_init();
 	_clrscr();
 	_puts("  CP/M Emulator v" VERSION " by Marcelo Dantas\r\n");
@@ -94,6 +104,13 @@ int main(int argc, char* argv[]) {
 	_puts("FILEBASE is ");
 	_puts(FILEBASE);
 	_puts("\r\n");
+#endif
+#ifdef EXTENDED_DEBUG
+	char sbuf[64];
+    if(gdbPort > 0) {
+		sprintf(&sbuf[0], "GDB Server listening on port %d\r\n", gdbPort);
+		_puts(sbuf);
+	}
 #endif
 #if BANKS > 1
 	_puts("Banked Memory: ");

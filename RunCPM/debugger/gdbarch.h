@@ -42,11 +42,17 @@
     "<reg name=\"bc'\" bitsize=\"16\" type=\"int\"/>"\
     "<reg name=\"de'\" bitsize=\"16\" type=\"int\"/>"\
     "<reg name=\"hl'\" bitsize=\"16\" type=\"int\"/>"\
-    "<reg name=\"clockl\" bitsize=\"16\" type=\"int\"/>"\
-    "<reg name=\"clockh\" bitsize=\"16\" type=\"int\"/>"\
+    "<reg name=\"ir\" bitsize=\"16\" type=\"int\"/>"\
     "</feature>"\
     "<architecture>z80</architecture>"\
     "</target>"
+
+    /* 
+      RunCPM doesn't have Clock Registers 
+
+        "<reg name=\"clockl\" bitsize=\"16\" type=\"int\"/>"\
+        "<reg name=\"clockh\" bitsize=\"16\" type=\"int\"/>"\
+    */
 
 #define EXTRA_NUM 25
 #define EXTRA_REG 16

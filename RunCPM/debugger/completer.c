@@ -7,7 +7,7 @@ static void word_completer(ic_completion_env_t* cenv, const char* word )
   // All the words we recognise
   static const char* completions[] = {
     "base", "breakpoint", "continue", "commands", "condition", "clear",
-    "delete", "disassemble", "dump", "exit", "finish", "if", "ignore", "next",
+    "delete", "disassemble", "dump", "exit", "finish", "if", "help", "ignore", "next",
     "out", "port", "print", "read", "set", "step", "status", "tbreakpoint",
     "write", NULL };
 

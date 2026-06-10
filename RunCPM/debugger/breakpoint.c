@@ -227,7 +227,7 @@ breakpoint_add( debugger_breakpoint_type type, debugger_breakpoint_value value,
 }
 
 /* Check whether the debugger should become active at this point */
-int
+void
 debugger_check( debugger_breakpoint_type type, uint32_t value )
 {
   GSList *ptr; debugger_breakpoint *bp;
@@ -237,7 +237,7 @@ debugger_check( debugger_breakpoint_type type, uint32_t value )
 
   switch( debugger_mode ) {
 
-  case DEBUGGER_MODE_INACTIVE: return 0;
+  case DEBUGGER_MODE_INACTIVE: return;
 
   case DEBUGGER_MODE_ACTIVE:
     for( ptr = debugger_breakpoints; ptr; ptr = ptr_next ) {
@@ -246,28 +246,26 @@ debugger_check( debugger_breakpoint_type type, uint32_t value )
       ptr_next = ptr->next;
 
       if( breakpoint_check( bp, type, value ) ) {
-        debugger_mode = DEBUGGER_MODE_HALTED;
-        debugger_command_evaluate( bp->commands );
+        debugger_trap();   // trap either GDB or inline debugger
+        debugger_command_evaluate( bp->commands );  // execute commands attached to breakpoint
 
+        // if it was a one-shot breakpoint then drop it
         if( bp->life == DEBUGGER_BREAKPOINT_LIFE_ONESHOT ) {
           debugger_breakpoints = g_slist_remove( debugger_breakpoints, bp );
           free( bp );
-          // signal_breakpoints_updated = 1;
         }
       }
 
     }
     break;
 
-  case DEBUGGER_MODE_HALTED: return 1;
+  case DEBUGGER_MODE_HALTED: return;
 
   }
 
   // if( signal_breakpoints_updated )
   //     ui_breakpoints_updated();
 
-  /* Debugger mode could have been reset by a breakpoint command */
-  return ( debugger_mode == DEBUGGER_MODE_HALTED );
 }
 
 /*

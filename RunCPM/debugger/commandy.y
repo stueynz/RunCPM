@@ -30,8 +30,9 @@
 #include <string.h>
 
 #include "debugger.h"    /* Public definitions */
-#include "internals.h"   /* Nitty gritty */
-#include "ui.h"
+#include "internals.h"   /* Emulator Nitty gritty */
+#include "ui.h"          /* Debugger output to UI functions */
+#include "gdbserver.h"   /* GDB Server */
 
 int yylex(); /* shutup implicit declaration warning */
 
@@ -90,10 +91,10 @@ extern int32_t PC;          /* program counter */
 %token		 DISASSEMBLE
 %token       DEBUGGER_END
 %token       DUMP
-%token		 EVENT
 %token		 EXIT
 %token		 FINISH
 %token       GO
+%token       HELP
 %token		 IF
 %token		 DEBUGGER_IGNORE
 %token		 NEXT
@@ -104,8 +105,10 @@ extern int32_t PC;          /* program counter */
 %token		 SET
 %token		 STEP
 %token       STATUS
-%token		 TIME
 %token		 WRITE
+
+%token       SERVER
+%token       HALT
 
 %token <integer> NUMBER
 
@@ -131,6 +134,7 @@ extern int32_t PC;          /* program counter */
 
 %type  <string>  debuggercommand
 %type  <string>  debuggercommands
+%type  <string>  stringornull
 
 /* Operator precedences */
 
@@ -194,6 +198,31 @@ command:   BASE number { debugger_output_base = $2; }
 	 | EXIT expressionornull { debugger_exit_emulator( $2 ); }
 	 | FINISH   { debugger_breakpoint_exit(); }
 	 | GO number { debugger_go( $2 ); }
+	 
+	 | HELP stringornull { ui_usage( $2 ); }
+
+	 | HELP BREAK { ui_usage( "breakpoint" ); }
+	 | HELP TBREAK { ui_usage( "breakpoint" ); }
+	 | HELP CLEAR { ui_usage( "breakpoint" ); }
+	 | HELP CONDITION { ui_usage( "breakpoint" ); }
+	 | HELP DEBUGGER_IGNORE { ui_usage( "breakpoint" ); }
+	 | HELP DEBUGGER_DELETE { ui_usage( "breakpoint" ); }
+
+
+	 | HELP STEP { ui_usage ("emulation"); }
+	 | HELP NEXT { ui_usage ("emulation"); }
+	 | HELP GO { ui_usage ("emulation"); }
+	 | HELP CONTINUE { ui_usage ("emulation"); }
+	 | HELP EXIT { ui_usage ("emulation"); }
+	 | HELP FINISH { ui_usage ("emulation"); }
+
+	 | HELP DUMP { ui_usage ("memory"); }
+	 | HELP SET { ui_usage ("memory"); }
+	 | HELP DISASSEMBLE { ui_usage ("memory"); }
+
+	 | HELP BASE { ui_usage ("general"); }
+	 | HELP DEBUGGER_PRINT { ui_usage ("general"); }
+
 	 | DEBUGGER_IGNORE NUMBER number { debugger_breakpoint_ignore( $2, $3 ); }
 	 | NEXT	    { debugger_next(); }
 	 | DEBUGGER_OUT number NUMBER { debugger_port_write( $2, $3 ); }
@@ -203,6 +232,8 @@ command:   BASE number { debugger_output_base = $2; }
      | SET STRING ':' STRING number { debugger_system_variable_set( $2, $4, $5 ); }
 	 | STEP	    { debugger_step(); }
 	 | STATUS   { ui_debugger_status(); }
+	 | SERVER number { gdbserver_start($2); }
+	 | SERVER HALT { gdbserver_stop(); }
 ;
 
 breakpointlife:   BREAK  { $$ = DEBUGGER_BREAKPOINT_LIFE_PERMANENT; }
@@ -247,6 +278,9 @@ optionalcondition:   /* empty */   { $$ = NULL; }
 numberorpc:   /* empty */ { $$ = PC; }
 	    | number      { $$ = $1; }
 ;
+
+stringornull:  /* empty */ { $$ = NULL; }
+		| STRING { $$ = $1; }
 
 expressionornull:   /* empty */ { $$ = NULL; }
 	          | expression  { $$ = $1; }

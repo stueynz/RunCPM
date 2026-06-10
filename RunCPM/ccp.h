@@ -634,8 +634,11 @@ void _ccp_readInput(void) {
         }
     } else {
         _ccp_bdos(C_READSTR, inBuf);            // Reads the command line from console
-        if (Debug)
+
+        // Has debugger been requested >>
+        if (Debug || debugger_mode == DEBUGGER_MODE_HALTED) {
             Z80run();
+        }
     }
 } // _ccp_readInput
 

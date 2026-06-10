@@ -21,6 +21,10 @@ LDFLAGS =
 # Objects to build
 OBJS = main.o 
 
+ifdef streamIO
+CFLAGS += -DSTREAMIO
+endif
+
 ## extended debugger adds a bunch more object files, glib library & conditional compile flags
 ifdef extendedDebug
 

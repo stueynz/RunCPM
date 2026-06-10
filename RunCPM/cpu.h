@@ -1693,18 +1693,20 @@ static inline void Z80run(void) {
 #ifdef DEBUG
 
 #ifdef EXTENDED_DEBUG
-		// Are we about to execute at a break point?
-		if(debugger_check(DEBUGGER_BREAKPOINT_TYPE_EXECUTE, PC)) {
-			_bputhex16(PC, &brkMsg[12]);
-			fputs(brkMsg, stderr);
-			Debug = 1;
+		// Has GDB connected and Trapped??
+		// no trap from brakpoint... just checking
+		if(gdbserver_activate(FALSE)) {
+			if(gdbserver_debugging_enabled && debugger_mode == DEBUGGER_MODE_HALTED) {
+				continue;   // Wait for the gdb debugger to let things go
+			}
 		}
+
+		// Are we about to execute at a break point - if so trap the appropriate debugger
+		debugger_check(DEBUGGER_BREAKPOINT_TYPE_EXECUTE, PC);
 
   		// Have we just completed executing the instruction at STEP?
 		if (PCX == Step) {
-			_bputhex16(PC, &stpMsg[11]);
-			fputs(stpMsg, stderr);
-			Debug = 1;
+			debugger_trap();
 			Step = -1;
 		}
 #else
@@ -1719,8 +1721,11 @@ static inline void Z80run(void) {
 			Step = -1;
 		}
 #endif
-		if (Debug)
+		if (Debug) {
+			_bputhex16(PC, &brkMsg[12]);
+			fputs(brkMsg, stderr);
 			Z80debug();
+		}
 
 		if (Status)
 			break;

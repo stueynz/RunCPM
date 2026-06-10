@@ -61,5 +61,7 @@ int ui_verror( ui_error_level severity, const char *format, va_list ap )
 void ui_debugger_disassemble(uint16_t address);
 void ui_debugger_dump(uint16_t address);
 void ui_debugger_status();
+void ui_debugger_list_breakpoints();
+void ui_usage(char *area);
 
 #endif			/* #ifndef FUSE_UI_H */

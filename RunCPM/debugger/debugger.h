@@ -53,9 +53,7 @@ void debugger_end( void );
 
 void debugger_reset( void );
 
-int is_debugger_enabled();
-
-int debugger_trap( void );	/* Activate the debugger */
+void debugger_trap( void );	/* Activate the debugger */
 
 int debugger_step( void );	/* Single step */
 int debugger_next( void );	/* Go to next instruction, ignoring CALL etc */

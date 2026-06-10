@@ -20,6 +20,10 @@
 #include <termios.h>
 #endif
 
+#ifdef EXTENDED_DEBUG
+extern int gdbPort;
+#endif
+
 #define HostOS 0x02
 
 /* Externals for abstracted functions need to go here */
@@ -488,21 +492,27 @@ static void _file_failure_exit(char *argv[], char* fmt, char* filename)
 static void _usage(char *argv[]) {
 	fprintf(stderr,
 		"RunCPM - an emulator to run CP/M programs on modern hosts\n"
+#ifdef EXTENDED_DEBUG
+		"usage: %s [-i input_file] [-o output_file] [-s] [-d port]\n", argv[0]);   // STREAMIO && EXTENDED_DEBUG has combined set of args
+#else		
 		"usage: %s [-i input_file] [-o output_file] [-s]\n", argv[0]);
+#endif		
 	fprintf(stderr,
-		"  -i input_file: console input will be read from the file "
-		"with the\ngiven name. "
-		"After input file's EOF, further console input\nwill be read "
-		"from the keyboard.\n");
+		"  -i input_file: console input will be read from the file with the\n"
+		"       given name. After input file's EOF, further console input\n"
+		"       will be read from the keyboard.\n");
 	fprintf(stderr,
-		"  -o output_file: console output will be written to the file "
-		"with the\ngiven name, in addition to the screen.\n");
+		"  -o output_file: console output will be written to the file with the\n"
+		"       given name, in addition to the screen.\n");
 	fprintf(stderr,
-		"  -s: console input and output is connected directly to "
-		"stdin and stdout.\nSince on Posix keyboard input is read from "
-		"stdin, switching from\nstdin to keyboard on stdin EOF is a "
-		"no-op. Therefore stdin EOF is an\nerror condition on Posix in "
-		"this case.\n");
+		"  -s: console input and output is connected directly to stdin and stdout.\n"
+		"       Since on Posix keyboard input is read from stdin, switching from\n"
+		"       stdin to keyboard on stdin EOF is a no-op. Therefore stdin EOF is an\n"
+		"       error condition on Posix in this case.\n");
+
+#ifdef EXTENDED_DEBUG
+    fprintf(stderr, " -d port:  GDB compatible debug server is started listening on given port\n");
+#endif
 }
 
 static void _fail_if_stdin_from_tty(char* argv[]) {
@@ -515,10 +525,16 @@ static void _fail_if_stdin_from_tty(char* argv[]) {
 	}
 }
 
+#ifdef EXTENDED_DEBUG
+#define OPTIONS ":i:o:sd:"           // STREAMIO && EXTENDED_DEBUG has combined set of args
+#else
+#define OPTIONS ":i:o:s"            // STREAMIO on its own has smaller set of args
+#endif
+
 static void _parse_options(int argc, char *argv[]) {
 	int c;
 	int errflg = 0;
-	while ((c = getopt(argc, argv, ":i:o:s")) != -1) {
+	while ((c = getopt(argc, argv, OPTIONS)) != -1) {
 		switch(c) {
 			case 'i':
 				streamInputFile = fopen(optarg, "r");
@@ -542,7 +558,13 @@ static void _parse_options(int argc, char *argv[]) {
 				streamInputActive = TRUE;
 				consoleOutputActive = FALSE;
 				break;
-			case ':':       /* -i or -o without operand */
+
+#ifdef EXTENDED_DEBUG
+            case 'd':
+			   gdbPort = atoi(optarg);
+			   break;
+#endif
+			case ':':       /* -i or -o or -d without operand */
 				fprintf(stderr,
 					"Option -%c requires an operand\n", optopt);
 				errflg++;
@@ -559,6 +581,50 @@ static void _parse_options(int argc, char *argv[]) {
 	}
 }
 #endif
+
+#ifdef EXTENDED_DEBUG
+#ifndef STREAMIO
+
+// EXTENDED_DEBUG without STREAMIO has a single -d arg
+static void _usage(char *argv[]) {
+	fprintf(stderr,
+		"RunCPM - an emulator to run CP/M programs on modern hosts\n"
+		"usage: [-d port]\n");
+    fprintf(stderr, " -d port:  GDB compatible debug server is started listening on given port\n");
+}
+
+/*  
+      Only one command line arg
+ */
+void _parse_options(int argc, char *argv[]) {
+	int c;
+	int errflg = 0;
+	while ((c = getopt(argc, argv, "d:")) != -1) {
+		switch(c) {
+            case 'd':
+			   gdbPort = atoi(optarg);
+			   break;
+
+			   case ':':       /* -i or -o or -d without operand */
+				fprintf(stderr,
+					"Option -%c requires an operand\n", optopt);
+				errflg++;
+				break;
+
+				case '?':
+				fprintf(stderr,
+					"Unrecognized option: '-%c'\n", optopt);
+				errflg++;
+		}
+	}
+	if (errflg || optind != argc) {
+		_usage(argv);
+		exit(EXIT_FAILURE);
+	}
+}
+#endif
+#endif
+
 
 #ifdef STREAMIO
 void _host_init(int argc, char* argv[]) {

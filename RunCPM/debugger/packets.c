@@ -153,7 +153,7 @@ void write_packet_bytes(const uint8_t *data, size_t num_bytes)
 void write_packet(const char *data)
 {
     write_packet_bytes((const uint8_t *)data, strlen(data));
-    printf("w: %s\n", data);
+    fprintf(stderr, "w[%03d]: %s\n", (int) strlen(data), data);
 }
 
 void write_binary_packet(const char *pfx, const uint8_t *data, ssize_t num_bytes)

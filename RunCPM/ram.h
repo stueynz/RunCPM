@@ -35,6 +35,7 @@ uint8 _RamRead(uint16 address) {
 uint16 _RamRead16(uint16 address) {
 #ifdef EXTENDED_DEBUG
 	debugger_check(DEBUGGER_BREAKPOINT_TYPE_READ, address);
+	debugger_check(DEBUGGER_BREAKPOINT_TYPE_READ, address+1);
 #endif
 	if (address < CCPaddr) {
 		return(RAM[address * curBank] + (RAM[(address * curBank) + 1] << 8));
