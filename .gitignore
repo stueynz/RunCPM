@@ -66,3 +66,7 @@ RunCPM/lua/luac
 # IntelliJ
 .idea
 
+# Various sets of drives
+drives
+dskImages
+searle
