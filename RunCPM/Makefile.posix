@@ -8,12 +8,43 @@ MFILE = Makefile.posix
 #extendedDebug = TRUE
 
 # Compiler command
-CC = gcc
-#CC = gcc -DDEBUG=1 -DDEBUGLOG=1
+CC ?= gcc
 
-# Flags to pass to the compiler - add "-g" to include debug information
-CFLAGS = -Wall -O3 -fPIC -Wno-unused-variable -g
-#CFLAGS = -Wall -O0 -fPIC -Wno-unused-variable -g
+# Flags to pass to the compiler
+CFLAGS ?= -Wall -O3 -fPIC -Wno-unused-variable
+
+DEBUG_MODE :=
+
+ifeq ($(DEBUG),1)
+DEBUG_MODE := 1
+endif
+
+ifneq ($(findstring -DDEBUG=1,$(CFLAGS)),)
+DEBUG_MODE := 1
+endif
+
+ifeq ($(DEBUG_MODE),1)
+CFLAGS := $(filter-out -O%,$(CFLAGS))
+CFLAGS := -Wall -O0 -fPIC -Wno-unused-variable -g -g -DDEBUG=1 -DDEBUGLOG=1 $(CFLAGS)
+endif
+
+# CCP selection: define one CCP macro when invoking make to select the CCP
+# Example: `make posix CCP=DR build`
+ifdef CCP
+CFLAGS += -DCCP_$(CCP)
+endif
+
+# CPU selection: define `CPU` to the header filename to include, e.g. cpu1.h
+# Example: `make posix CPU=cpu2.h build`
+ifdef CPU
+CFLAGS += -DCPU=\"$(CPU).h\"
+endif
+
+# Enable CPM3 extension
+# Example: `make posix CPM3=1`
+ifdef CPM3
+CFLAGS += -DCPM3
+endif
 
 # Flags to pass to the linker
 LDFLAGS =
@@ -25,7 +56,9 @@ ifdef streamIO
 CFLAGS += -DSTREAMIO
 endif
 
-## extended debugger adds a bunch more object files, glib library & conditional compile flags
+## extended debugger adds a bunch more object files, glib library & conditional compile flags 
+##     to enable multiple breakpoints, memory watchpoints and variables in the on-board debugger (Ctl-D)
+##     as well as enabling GDB remote debugging if debug port is given on the commandline.
 ifdef extendedDebug
 
 CFLAGS += -DDEBUG -DEXTENDED_DEBUG $$(pkg-config --cflags glib-2.0)

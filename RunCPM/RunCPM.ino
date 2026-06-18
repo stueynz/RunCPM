@@ -2,7 +2,8 @@
 
 #include <SPI.h>
 
-#define SDFAT_FILE_TYPE 1 // Uncomment for Due and Teensy
+#define SDFAT_FILE_TYPE 1 // Uncomment for Due, Teensy and Pico
+#define DISABLE_FS_H_WARNING
 
 #include <SdFat.h>  // One SD library to rule them all - Greinman SdFat from Library Manager
 
@@ -33,7 +34,7 @@ int lst_open = FALSE;
 
 #include "ram.h"
 #include "console.h"
-#include "cpu.h"
+#include CPU
 #include "disk.h"
 #include "host.h"
 #include "cpm.h"
@@ -61,6 +62,12 @@ void setup(void) {
   _puts("Arduino read/write support by Krzysztof Klis\r\n");
   _puts("      Built " __DATE__ " - " __TIME__ "\r\n");
   _puts("--------------------------------------------\r\n");
+  _puts("CPU is ");
+  _puts(CPU_IS);
+  _puts("\r\n");
+#ifndef DEBUG
+  Z80estimateClock();
+#endif
 	_puts("BIOS at 0x");
 	_puthex16(BIOSjmppage);
 	_puts(" - ");
@@ -84,7 +91,7 @@ void setup(void) {
       while (true) {
         _puts(CCPHEAD);
         _PatchCPM();
-	Status = 0;
+	Status = STATUS_RUNNING;
 #ifdef CCP_INTERNAL
         _ccp();
 #else
@@ -110,9 +117,9 @@ void setup(void) {
         Z80reset();
         SET_LOW_REGISTER(BC, _RamRead(DSKByte));
         PC = CCPaddr;
-        Z80run();
+        Z80run(cpuDelayInstructions);
 #endif
-        if (Status == 1)
+        if (Status == STATUS_EXIT)
 #ifdef DEBUG
 	#ifdef DEBUGONHALT
     			Debug = 1;
