@@ -1,33 +1,28 @@
 #ifndef ABSTRACT_H
 #define ABSTRACT_H
 
-#include <ctype.h>
-#include <errno.h>
-#include <glob.h>
-#include <libgen.h>
-#include <poll.h>
-#include <stdbool.h>
+/* see main.c for definition */
+
+// #ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS
+#include <windows.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/stat.h>
-#include <termios.h>
+#include <conio.h>
+#include <stdbool.h>
 #include <time.h>
-#include <unistd.h>
-#define millis() clock() / 1000
+#include <signal.h>
+#include <wincon.h>
+#include <ctype.h> // added for isdigit/toupper
+// #endif
+#define millis() clock()
 
-#ifdef STREAMIO
-    #include <termios.h>
-#endif
-
-#define HostOS 0x02
+#define HostOS 0x00
 
 /* Externals for abstracted functions need to go here */
 FILE *_sys_fopen_r(uint8 *filename);
 int _sys_fseek(FILE *file, long delta, int origin);
 long _sys_ftell(FILE *file);
-long _sys_fread(void *buffer, long size, long count, FILE *file);
-int _sys_fflush(FILE *file);
+size_t _sys_fread(void *buffer, size_t size, size_t count, FILE *file);
 int _sys_fclose(FILE *file);
 
 /* Memory abstraction functions */
@@ -48,8 +43,11 @@ uint16 _RamLoad(uint8 *filename, uint16 address, uint16 maxsize) {
 
 /* Filesystem (disk) abstraction functions */
 /*===============================================================================*/
-#define FOLDERCHAR '/'
-#define FILEBASE "./"
+WIN32_FIND_DATA FindFileData;
+HANDLE hFind;
+int dirPos;
+#define FOLDERCHAR '\\'
+#define FILEBASE ".\\"
 
 typedef struct {
     uint8 dr;
@@ -68,10 +66,10 @@ typedef struct {
     uint8 al[16];
 } CPM_DIRENTRY;
 
-uint8 _sys_exists(uint8 *filename) {
+BOOL _sys_exists(uint8 *filename) {
     uint8 fullpath[128] = FILEBASE;
     strcat((char *)fullpath, (char *)filename);
-    return (!access((const char *)fullpath, F_OK));
+    return (GetFileAttributesA((char *)fullpath) != INVALID_FILE_ATTRIBUTES);
 }
 
 FILE *_sys_fopen_r(uint8 *filename) {
@@ -106,11 +104,11 @@ long _sys_ftell(FILE *file) {
     return (ftell(file));
 }
 
-long _sys_fread(void *buffer, long size, long count, FILE *file) {
+size_t _sys_fread(void *buffer, size_t size, size_t count, FILE *file) {
     return (fread(buffer, size, count, file));
 }
 
-long _sys_fwrite(const void *buffer, long size, long count, FILE *file) {
+size_t _sys_fwrite(const void *buffer, size_t size, size_t count, FILE *file) {
     return (fwrite(buffer, size, count, file));
 }
 
@@ -145,10 +143,10 @@ int _sys_rename(uint8 *name1, uint8 *name2) {
 }
 
 int _sys_select(uint8 *disk) {
-    struct stat st;
     uint8 fullpath[128] = FILEBASE;
     strcat((char *)fullpath, (char *)disk);
-    return ((stat((char *)fullpath, &st) == 0) && S_ISDIR(st.st_mode));
+    uint32 attr = GetFileAttributes((LPCSTR)fullpath);
+    return (attr != INVALID_FILE_ATTRIBUTES && (attr & FILE_ATTRIBUTE_DIRECTORY) != 0);
 }
 
 long _sys_filesize(uint8 *filename) {
@@ -172,26 +170,47 @@ int _sys_openfile(uint8 *filename) {
 #ifdef CPM3
 // Returns the host file modification time (seconds since the Unix epoch), or 0 if not found
 unsigned long _sys_filemtime(uint8 *filename) {
-    struct stat st;
-    uint8 fullpath[128] = FILEBASE;
-    strcat((char *)fullpath, (char *)filename);
-    if (stat((char *)fullpath, &st) == 0)
-        return ((unsigned long)st.st_mtime);
+    char fullpath[128] = FILEBASE;
+    WIN32_FILE_ATTRIBUTE_DATA fad;
+    strcat(fullpath, (char *)filename);
+    if (GetFileAttributesExA(fullpath, GetFileExInfoStandard, &fad)) {
+        // Convert FILETIME (100ns ticks since 1601-01-01) to Unix epoch seconds
+        ULARGE_INTEGER ull;
+        ull.LowPart = fad.ftLastWriteTime.dwLowDateTime;
+        ull.HighPart = fad.ftLastWriteTime.dwHighDateTime;
+        return ((unsigned long)((ull.QuadPart / 10000000ULL) - 11644473600ULL));
+    }
     return (0);
 }
 
-// Returns 1 if the host file is read-only (no write permission), 0 otherwise
+// Returns 1 if the host file is read-only, 0 otherwise
 uint8 _sys_isreadonly(uint8 *filename) {
-    uint8 fullpath[128] = FILEBASE;
-    strcat((char *)fullpath, (char *)filename);
-    return (access((char *)fullpath, W_OK) != 0 ? 1 : 0);
+    char fullpath[128] = FILEBASE;
+    DWORD attr;
+    strcat(fullpath, (char *)filename);
+    attr = GetFileAttributesA(fullpath);
+    if (attr == INVALID_FILE_ATTRIBUTES)
+        return (0);
+    return ((attr & FILE_ATTRIBUTE_READONLY) ? 1 : 0);
 }
 
 // Truncates the host file to 'length' bytes. Returns 0 on success.
 int _sys_truncate(uint8 *filename, long length) {
-    uint8 fullpath[128] = FILEBASE;
-    strcat((char *)fullpath, (char *)filename);
-    return (truncate((char *)fullpath, length));
+    char fullpath[128] = FILEBASE;
+    HANDLE h;
+    LARGE_INTEGER li;
+    strcat(fullpath, (char *)filename);
+    h = CreateFileA(fullpath, GENERIC_WRITE, 0, NULL, OPEN_EXISTING,
+                    FILE_ATTRIBUTE_NORMAL, NULL);
+    if (h == INVALID_HANDLE_VALUE)
+        return (-1);
+    li.QuadPart = length;
+    if (!SetFilePointerEx(h, li, NULL, FILE_BEGIN) || !SetEndOfFile(h)) {
+        CloseHandle(h);
+        return (-1);
+    }
+    CloseHandle(h);
+    return (0);
 }
 #endif
 
@@ -212,14 +231,13 @@ int _sys_renamefile(uint8 *filename, uint8 *newname) {
 
 #ifdef DEBUGLOG
 void _sys_logbuffer(uint8 *buffer) {
-    FILE *file;
     #ifdef CONSOLELOG
     puts((char *)buffer);
     #else
     uint8 s = 0;
     while (*(buffer + s)) // Computes buffer size
         ++s;
-    file = _sys_fopen_a((uint8 *)LogName);
+    FILE *file = _sys_fopen_a((uint8 *)LogName);
     _sys_fwrite(buffer, 1, s, file);
     _sys_fclose(file);
     #endif
@@ -299,10 +317,7 @@ uint8 _sys_readrand(uint8 *filename, long fpos) {
                 extSize = _sys_ftell(file);
                 // round file size up to next full logical extent
                 extSize = 16384 * ((extSize / 16384) + ((extSize % 16384) ? 1 : 0));
-                if (fpos < extSize)
-                    result = 0x01; // reading unwritten data
-                else
-                    result = 0x04; // seek to unwritten extent
+                result = fpos < extSize ? 0x01 : 0x04;
             }
         }
         _sys_fclose(file);
@@ -332,133 +347,107 @@ uint8 _sys_writerand(uint8 *filename, long fpos) {
     return (result);
 }
 
-uint8 _Truncate(char *fn, uint8 rc) {
-    uint8 result = 0x00;
-    uint8 fullpath[128] = FILEBASE;
-    strcat((char *)fullpath, (char *)fn);
-    if (truncate((char *)fullpath, rc * 128))
-        result = 0xff;
-    return (result);
-}
-
-void _MakeUserDir() {
-    uint8 dFolder = cDrive + 'A';
-    uint8 uFolder = toupper(tohex(userCode));
-
-    uint8 path[4] = {dFolder, FOLDERCHAR, uFolder, 0};
-    uint8 fullpath[128] = FILEBASE;
-    strcat((char *)fullpath, (char *)path);
-
-    mkdir((char *)fullpath, S_IRUSR | S_IWUSR | S_IXUSR);
-}
-
-uint8 _sys_makedisk(uint8 drive) {
-    uint8 result = 0;
-    if (drive < 1 || drive > 16) {
-        result = 0xff;
-    } else {
-        uint8 dFolder = drive + '@';
-        uint8 disk[2] = {dFolder, 0};
-        uint8 fullpath1[128] = FILEBASE;
-        strcat((char *)fullpath1, (char *)disk);
-        if (mkdir((char *)fullpath1, S_IRUSR | S_IWUSR | S_IXUSR)) {
-            result = 0xfe;
-        } else {
-            uint8 path[4] = {dFolder, FOLDERCHAR, '0', 0};
-            uint8 fullpath2[128] = FILEBASE;
-            strcat((char *)fullpath2, (char *)path);
-            mkdir((char *)fullpath2, S_IRUSR | S_IWUSR | S_IXUSR);
-        }
-    }
-
-    return (result);
-}
-
-#ifndef POLLRDBAND
-    #define POLLRDBAND 0
-#endif
-#ifndef POLLRDNORM
-    #define POLLRDNORM 0
-#endif
-
-glob_t pglob;
-int dirPos;
-
-static char findNextDirName[128];
+static char findNextDirName[17];
 static uint16 fileRecords = 0;
 static uint16 fileExtents = 0;
 static uint16 fileExtentsUsed = 0;
 static uint16 firstFreeAllocBlock;
 
+// Selects next user area
+void NextUserArea() {
+    FindClose(hFind);
+    filename[2]++; // This needs to be improved so it doesn't stop searching once there's an user area gap
+    if (filename[2] == ':')
+        filename[2] = 'A';
+    uint8 fullpath[128] = FILEBASE;
+    strcat((char *)fullpath, (char *)filename);
+    hFind = FindFirstFile((LPCSTR)fullpath, &FindFileData);
+}
+
 uint8 _findnext(uint8 isdir) {
     uint8 result = 0xff;
-    char dir[6] = {'?', FOLDERCHAR, 0, FOLDERCHAR, '*', 0};
-    int i;
-    struct stat st;
+    uint8 found = 0;
+    uint8 more = 1;
     uint32 bytes;
 
+    uint8 fullpath[128] = FILEBASE;
+    strcat((char *)fullpath, (char *)filename);
+
     if (allExtents && fileRecords) {
-        // _SearchFirst was called with '?' in the FCB's EX field, so
-        // we need to return all file extents.
-        // The last found file was large enough that in CP/M it would
-        // have another directory entry, so mock up the next entry
-        // for the file.
-        _mockupDirEntry(1);
+        _mockupDirEntry(0);
         result = 0;
     } else {
-        // Either we're only interested in the first directory entry
-        // for each file, or the previously found file has had the
-        // required number of dierctory entries returned already.
-        dir[0] = filename[0];
-        if (allUsers)
-            dir[2] = '?';
-        else
-            dir[2] = filename[2];
-        uint8 fullpath[128] = FILEBASE;
-        strcat((char *)fullpath, (char *)dir);
-        if (!glob((char *)fullpath, 0, NULL, &pglob)) {
-            for (i = dirPos; i < pglob.gl_pathc; ++i) {
-                ++dirPos;
-                strncpy(findNextDirName, pglob.gl_pathv[i], sizeof(findNextDirName) - 1);
-                findNextDirName[sizeof(findNextDirName) - 1] = 0;
-                char *shortName = &findNextDirName[strlen(FILEBASE)];
-                _HostnameToFCBname((uint8 *)shortName, fcbname);
-                if (match(fcbname, pattern) &&
-                    (stat(findNextDirName, &st) == 0) &&
-                    S_ISREG(st.st_mode) &&
-                    isxdigit((uint8)shortName[2]) &&
-                    (isupper((uint8)shortName[2]) || isdigit((uint8)shortName[2]))) {
-                    if (allUsers)
-                        currFindUser = isdigit((uint8)shortName[2]) ? shortName[2] - '0' : shortName[2] - 'A' + 10;
-                    if (isdir) {
-                        // account for host files that aren't multiples of the block size
-                        // by rounding their bytes up to the next multiple of blocks
-                        bytes = st.st_size;
-                        if (bytes & (BlkSZ - 1))
-                            bytes = (bytes & ~(BlkSZ - 1)) + BlkSZ;
-                        // calculate the number of 128 byte records and 16K
-                        // extents for this file. _mockupDirEntry will use
-                        // these values to populate the returned directory
-                        // entry, and decrement the # of records and extents
-                        // left to process in the file.
-                        fileRecords = bytes / BlkSZ;
-                        fileExtents = fileRecords / BlkEX + ((fileRecords & (BlkEX - 1)) ? 1 : 0);
-                        fileExtentsUsed = 0;
-                        firstFreeAllocBlock = firstBlockAfterDir;
-                        _mockupDirEntry(1);
-                    } else {
-                        fileRecords = 0;
-                        fileExtents = 0;
-                        fileExtentsUsed = 0;
-                        firstFreeAllocBlock = firstBlockAfterDir;
+        if (dirPos == 0) {
+            hFind = FindFirstFile((LPCSTR)fullpath, &FindFileData);
+        } else {
+            more = FindNextFile(hFind, &FindFileData);
+            if (allUsers && !more) {
+                NextUserArea();
+                more++;
+            }
+        }
+
+        while (hFind != INVALID_HANDLE_VALUE && more) { // Skips folders and long file names
+            if (FindFileData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+                more = FindNextFile(hFind, &FindFileData);
+                if (allUsers && !more) {
+                    NextUserArea();
+                    more++;
+                }
+                continue;
+            }
+            if (FindFileData.cAlternateFileName[0] != 0) {
+                if (FindFileData.cFileName[0] != '.') // Keeps files that are extension only
+                {
+                    more = FindNextFile(hFind, &FindFileData);
+                    if (allUsers && !more) {
+                        NextUserArea();
+                        more++;
                     }
-                    _RamWrite(tmpFCB, filename[0] - '@');
-                    _HostnameToFCB(tmpFCB, (uint8 *)shortName);
-                    result = 0x00;
-                    break;
+                    continue;
                 }
             }
-            globfree(&pglob);
+            ++found;
+            ++dirPos;
+            break;
+        }
+        if (found) {
+            if (isdir) {
+                // copy filename safely and NUL-terminate
+                strncpy(findNextDirName, FindFileData.cFileName, sizeof(findNextDirName) - 1);
+                findNextDirName[sizeof(findNextDirName) - 1] = '\0';
+
+                // set current find user when searching all users using filename[2]
+                if (allUsers) {
+                    char u = filename[2];
+                    if (isdigit((unsigned char)u)) {
+                        currFindUser = u - '0';
+                    } else {
+                        currFindUser = toupper((unsigned char)u) - 'A' + 10;
+                    }
+                }
+
+                // account for host files that aren't multiples of the block size
+                // by rounding their bytes up to the next multiple of blocks
+                bytes = FindFileData.nFileSizeLow;
+                if (bytes & (BlkSZ - 1)) {
+                    bytes = (bytes & ~(BlkSZ - 1)) + BlkSZ;
+                }
+                fileRecords = bytes / BlkSZ;
+                fileExtents = fileRecords / BlkEX + ((fileRecords & (BlkEX - 1)) ? 1 : 0);
+                fileExtentsUsed = 0;
+                firstFreeAllocBlock = firstBlockAfterDir;
+                _mockupDirEntry(0);
+            } else {
+                fileRecords = 0;
+                fileExtents = 0;
+                fileExtentsUsed = 0;
+            }
+            _RamWrite(tmpFCB, filename[0] - '@');                        // Set the requested drive onto the tmp FCB
+            _HostnameToFCB(tmpFCB, (uint8 *)&FindFileData.cFileName[0]); // Set the file name onto the tmp FCB
+            result = 0x00;
+        } else {
+            FindClose(hFind);
         }
     }
     return (result);
@@ -480,10 +469,63 @@ uint8 _findnextallusers(uint8 isdir) {
 uint8 _findfirstallusers(uint8 isdir) {
     dirPos = 0;
     strcpy((char *)pattern, "???????????");
+    _HostnameToFCBname(filename, pattern);
+    filename[2] = '0';
     fileRecords = 0;
     fileExtents = 0;
     fileExtentsUsed = 0;
     return (_findnextallusers(isdir));
+}
+
+uint8 _Truncate(char *fn, uint8 rc) {
+    uint8 result = 0x00;
+    LARGE_INTEGER fp;
+    fp.QuadPart = (LONGLONG)rc * 128;
+    wchar_t filename[128];
+    uint8 fullpath[128] = FILEBASE;
+    strcat((char *)fullpath, fn);
+    MultiByteToWideChar(CP_ACP, 0, (char *)fullpath, -1, filename, (int)strlen((char *)fullpath) + 1);
+    HANDLE fh = CreateFileW(filename, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    if (fh == INVALID_HANDLE_VALUE) {
+        result = 0xff;
+    } else {
+        if (SetFilePointerEx(fh, fp, NULL, FILE_BEGIN) == 0 || SetEndOfFile(fh) == 0)
+            result = 0xff;
+    }
+    CloseHandle(fh);
+    return (result);
+}
+
+void _MakeUserDir() {
+    uint8 dFolder = cDrive + 'A';
+    uint8 uFolder = toupper(tohex(userCode));
+    uint8 path[4] = {dFolder, FOLDERCHAR, uFolder, 0};
+    uint8 fullpath[128] = FILEBASE;
+
+    strcat((char *)fullpath, (char *)path);
+    CreateDirectory((char *)fullpath, NULL);
+}
+
+uint8 _sys_makedisk(uint8 drive) {
+    uint8 result = 0;
+    if (drive < 1 || drive > 16) {
+        result = 0xff;
+    } else {
+        uint8 dFolder = drive + '@';
+        uint8 disk[2] = {dFolder, 0};
+        uint8 fullpath1[128] = FILEBASE;
+        strcat((char *)fullpath1, (char *)disk);
+        if (!CreateDirectory((char *)fullpath1, NULL)) {
+            result = 0xfe;
+        } else {
+            uint8 path[4] = {dFolder, FOLDERCHAR, '0', 0};
+            uint8 fullpath2[128] = FILEBASE;
+            strcat((char *)fullpath2, (char *)path);
+            CreateDirectory((char *)fullpath2, NULL);
+        }
+    }
+
+    return (result);
 }
 
 /* Hardware abstraction functions */
@@ -502,6 +544,9 @@ uint32 _HardwareIn(const uint32 Port) {
 /*===============================================================================*/
 
 #ifdef STREAMIO
+static void _abort_if_kbd_eof() {
+}
+
 static void _file_failure_exit(char *argv[], char *fmt, char *filename) {
     fprintf(stderr, "%s: ", argv[0]);
     fprintf(stderr, fmt, filename);
@@ -519,69 +564,66 @@ static void _usage(char *argv[]) {
             argv[0]);
     fprintf(stderr,
             "  -i input_file: console input will be read from the file "
-            "with the\ngiven name. "
-            "After input file's EOF, further console input\nwill be read "
+            "with the\n     given name. "
+            "After input file's EOF, further console input\n     will be read "
             "from the keyboard.\n");
     fprintf(stderr,
             "  -o output_file: console output will be written to the file "
-            "with the\ngiven name, in addition to the screen.\n");
+            "with the\n     given name, in addition to the screen.\n");
     fprintf(stderr,
             "  -s: console input and output is connected directly to "
-            "stdin and stdout.\nSince on Posix keyboard input is read from "
-            "stdin, switching from\nstdin to keyboard on stdin EOF is a "
-            "no-op. Therefore stdin EOF is an\nerror condition on Posix in "
-            "this case.\n");
+            "stdin and stdout.\n");
 }
 
-static void _fail_if_stdin_from_tty(char *argv[]) {
-    struct termios dummyTermios;
-    if (0 == tcgetattr(0, &dummyTermios) ||
-        errno != ENOTTY) {
-        _file_failure_exit(argv,
-                           "option -s is illegal when stdin comes from %s",
-                           "tty");
-    }
-}
+    #define SET_OPTARG   \
+        ++i;             \
+        if (i >= argc) { \
+            ++errflg;    \
+            break;       \
+        }                \
+        optarg = argv[i];
 
 static void _parse_options(int argc, char *argv[]) {
-    int c;
     int errflg = 0;
-    while ((c = getopt(argc, argv, ":i:o:s")) != -1) {
-        switch (c) {
-        case 'i':
+    char *optarg;
+    for (int i = 1; i < argc && errflg == 0; ++i) {
+        if (strcmp("-i", argv[i]) == 0) {
+            /* ++i;
+            if (i >= argc) {
+                    ++errflg;
+                    break;
+            }
+            optarg = argv[i]; */
+            SET_OPTARG
             streamInputFile = fopen(optarg, "r");
             if (NULL == streamInputFile) {
                 _file_failure_exit(argv,
                                    "error opening console input file %s", optarg);
             }
             streamInputActive = TRUE;
-            break;
-        case 'o':
+            continue;
+        }
+        if (strcmp("-o", argv[i]) == 0) {
+            SET_OPTARG
             streamOutputFile = fopen(optarg, "w");
             if (NULL == streamOutputFile) {
                 _file_failure_exit(argv,
                                    "error opening console output file %s", optarg);
             }
-            break;
-        case 's':
-            _fail_if_stdin_from_tty(argv);
+            continue;
+        }
+        if (strcmp("-s", argv[i]) == 0) {
             streamInputFile = stdin;
             streamOutputFile = stdout;
             streamInputActive = TRUE;
             consoleOutputActive = FALSE;
-            break;
-        case ':': /* -i or -o without operand */
-            fprintf(stderr,
-                    "Option -%c requires an operand\n", optopt);
-            errflg++;
-            break;
-        case '?':
-            fprintf(stderr,
-                    "Unrecognized option: '-%c'\n", optopt);
-            errflg++;
+            continue;
         }
+        fprintf(stderr,
+                "Unrecognized option: '%s'\n", argv[i]);
+        errflg++;
     }
-    if (errflg || optind != argc) {
+    if (errflg) {
         _usage(argv);
         exit(EXIT_FAILURE);
     }
@@ -591,84 +633,85 @@ static void _parse_options(int argc, char *argv[]) {
 #ifdef STREAMIO
 void _host_init(int argc, char *argv[]) {
     _parse_options(argc, argv);
-    if (chdir(dirname(argv[0]))) {
-        _file_failure_exit(argv, "error performing chdir(%s)",
-                           dirname(argv[0]));
-    }
 }
 #endif
 
 /* Console abstraction functions */
 /*===============================================================================*/
+DWORD cOutMode;         // Stores initial console mode for the std output
+DWORD cInMode;          // Stores initial console mode for the std input
+TCHAR cTitle[MAX_PATH]; // Stores the initial console title
 
-static struct termios _old_term, _new_term;
+BOOL _signal_handler(DWORD signal) {
+    BOOL result = FALSE;
+    if (signal == CTRL_C_EVENT) {
+        _ungetch(3);
+        result = TRUE;
+    }
+    return (result);
+}
 
 void _console_init(void) {
-    tcgetattr(0, &_old_term);
+    HANDLE hOutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE hInHandle = GetStdHandle(STD_INPUT_HANDLE);
 
-    _new_term = _old_term;
+    GetConsoleMode(hOutHandle, &cOutMode);
+    GetConsoleMode(hInHandle, &cInMode);
 
-    _new_term.c_lflag &= ~ICANON; /* Input available immediately (no EOL needed) */
-    _new_term.c_lflag &= ~ECHO;   /* Do not echo input characters */
-    _new_term.c_lflag &= ~ISIG;   /* ^C and ^Z do not generate signals */
-    _new_term.c_iflag &= INLCR;   /* Translate NL to CR on input */
+    GetConsoleTitle(cTitle, MAX_PATH);
 
-    tcsetattr(0, TCSANOW, &_new_term); /* Apply changes immediately */
+    //	SetConsoleMode(hOutHandle, cOutMode | ENABLE_VIRTUAL_TERMINAL_PROCESSING | DISABLE_NEWLINE_AUTO_RETURN);
+    //	SetConsoleMode(hInHandle, cInMode | ENABLE_VIRTUAL_TERMINAL_INPUT);
+    SetConsoleTitle("RunCPM v" VERSION);
 
-    setvbuf(stdin, (char *)NULL, _IONBF, 256); /* Enable stdin buffering */
-    setvbuf(stdout, (char *)NULL, _IONBF, 0);  /* Disable stdout buffering */
-}
+    setvbuf(stdin, NULL, _IONBF, 256);
+    setvbuf(stdout, NULL, _IONBF, 0);
 
-void _console_reset(void) {
-    tcsetattr(0, TCSANOW, &_old_term);
-}
-
-#ifdef STREAMIO
-extern void _streamioReset(void);
-
-static void _abort_if_kbd_eof() {
-    // On Posix, if !streamInputActive && streamInputFile == stdin,
-    // this means EOF on stdin. Assuming that stdin is connected to a
-    // file or pipe, further reading from stdin won't read from the
-    // keyboard but just continue to yield EOF.
-    // On Windows, this problem doesn't exist because of the separate
-    // conio.h.
-    if (!streamInputActive && streamInputFile == stdin) {
-        _puts("\nEOF on console input from stdin\n");
-        _console_reset();
-        _streamioReset();
+    if (!SetConsoleCtrlHandler((PHANDLER_ROUTINE)_signal_handler, TRUE)) {
+        _puts("Error setting ^C signal handler.\n");
         exit(EXIT_FAILURE);
     }
 }
-#endif
 
-int _kbhit(void) {
-    struct pollfd pfds[1];
+void _console_reset(void) {
+    HANDLE hOutHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    HANDLE hInHandle = GetStdHandle(STD_INPUT_HANDLE);
 
-    pfds[0].fd = STDIN_FILENO;
-    pfds[0].events = POLLIN | POLLPRI | POLLRDBAND | POLLRDNORM;
-
-    return (poll(pfds, 1, 0) == 1) && (pfds[0].revents & (POLLIN | POLLPRI | POLLRDBAND | POLLRDNORM));
+    SetConsoleMode(hOutHandle, cOutMode);
+    SetConsoleMode(hInHandle, cInMode);
+    SetConsoleTitle(cTitle);
 }
 
-uint8 _getch(void) {
-    return getchar();
+/* Implemented by conio.h
+int _kbhit(void)
+{
+
 }
+*/
 
-void _putch(uint8 ch) {
-    putchar(ch);
+/* Implemented by conio.h
+byte _getch(void)
+{
+
 }
+*/
 
-uint8 _getche(void) {
-    uint8 ch = _getch();
+/* Implemented by conio.h
+byte _getche(void)
+{
 
-    _putch(ch);
-
-    return ch;
 }
+*/
+
+/* Implemented by conio.h
+void _putch(uint8 byte)
+{
+
+}
+*/
 
 void _clrscr(void) {
-    uint8 ch = system("clear");
+    system("cls");
 }
 
 #endif

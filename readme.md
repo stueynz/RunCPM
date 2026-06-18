@@ -127,7 +127,7 @@ This command will then be executed every time the CCP is restarted or once when 
 
 ## Printing
 
-Printing to the PUN: and LST: devices is allowed and will generate files called "PUN.TXT" and "LST.TXT" under user area 0 of disk A:. These files can then be tranferred over to a host computer via XMODEM for real physical printing.
+Printing to the PUN: and LST: devices is allowed and will generate files called "PUN.TXT" and "LST.TXT" under user area 0 of disk A:. These files can then be transferred over to a host computer via XMODEM for real physical printing.
 These files are created when the first printing occurs, and will be kept open throughout RunCPM usage. They can be erased inside CP/M to trigger the start of a new printing.
 As of now RunCPM does not support printing to physical devices.
 
@@ -147,7 +147,7 @@ When using a serial terminal emulator, make sure it sends either CR or LF when y
 All the letters for folders/subfolders and file names should be kept in uppercase, to avoid any issues of case-sensitive filesystems (Linux) compatibility.<br>
 There's a workaround though which can be implemented on Linux if the kernel is new enough. Refer to [this solution](https://github.com/MockbaTheBorg/RunCPM/issues/204#issuecomment-2648539858) for steps to make a Linux folder case insensitive, if your Linux supports it.
 
-RunCPM does not support making files read-only or any other CP/M attributes. All the files will be visible and R/W all the time, so be careful. It supports making "disks" read-only though, but only from RunCPM's perspective. The R/O attributes of the disk's containing folder are not modified.
+RunCPM at the moment does not support making files read-only or any other CP/M attributes. All the files will be visible and R/W all the time, so be careful. It supports making "disks" read-only though, but only from RunCPM's perspective. The R/O attributes of the disk's containing folder are not modified.
 
 Some applications, like hi-tech C for example, will try to access user areas higher than 15 to verify if they are running on a different CP/M flavor than 2.2. This causes the generation of user areas with letters higher than F. This is an expected behavior and won't be "fixed".
 
