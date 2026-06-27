@@ -47,7 +47,7 @@
 // #define ABDOS				// Based on work by Pavel Zampach (https://www.chstercius.cz/runcpm/)
 //  This requires ABDOS.SYS to be present on A: user 0 - see 'abdos' folder under 'tools'
 
-#ifdef _WIN32   // Windows needs a default CCP defined to compile as there's no Makefile
+#if defined(_WIN32) || defined(ARDUINO)  // Windows needs a default CCP defined to compile as there's no Makefile
     #define CCP_INTERNAL
 // #define CCP_DR
 // #define CCP_CCPZ
@@ -200,7 +200,7 @@ typedef unsigned long long uint64;
                    // For TPASIZE<60 CCP ORG = (SIZEK * 1024) - 0x0C00
 
 #ifndef BANKS
-    #define BANKS 8 // Number of memory banks available (defined in Makefile per platform)
+    #define BANKS 1 // Number of memory banks available (defined in Makefile per platform)
 #endif
 static uint8 curBank = 0;     // Number of the current RAM bank in use (0-based, 0 to BANKS-1, as in CP/M 3)
 static uint8 isXmove = FALSE; // Used by BIOS
