@@ -1417,7 +1417,11 @@ void _ccp_readInput(void) {
         _ccp_bdos(C_READSTR, inBuf); // Reads the command line from console
 
         // Has debugger been requested >>
+#ifdef EXTENDED_DEBUG        
         if (Debug || debugger_mode == DEBUGGER_MODE_HALTED) {
+#else
+        if (Debug) {
+#endif
             Z80run(cpuDelayInstructions);
         }
     }

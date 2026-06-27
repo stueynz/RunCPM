@@ -42,13 +42,14 @@ int pun_open = FALSE;
     #ifdef USE_LST
 FILE *lst_dev;
 int lst_open = FALSE;
-#endif
+    #endif
 
-#ifdef EXTENDED_DEBUG
-#include "debugger/debugger.h"
-#include "debugger/gdbserver.h"
+    #ifdef EXTENDED_DEBUG
+    #include "debugger/debugger.h"
+    #include "debugger/gdbserver.h"
+    #include "extdebug.h"
 
-extern void ic_initialize();
+    extern void ic_initialize();  // libreadline replacement
     #endif
 
     #include "ram.h"     // ram.h - Implements the RAM
@@ -80,9 +81,12 @@ int main(int argc, char *argv[]) {
 	ic_initialize();                // libreadline replacement -- that actually works !!
 
 	gdbserver_init();
-#ifndef STREAMIO
+
+    #ifndef STREAMIO
 	_parse_options(argc, &argv[0]);    // We didn't call host_init(), so we need to check for GDB Server port...
+    #endif
 #endif
+
 	_console_init();
 	_clrscr();
 	_puts("  CP/M Emulator v" VERSION " by Marcelo Dantas\r\n");

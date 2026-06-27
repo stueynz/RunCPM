@@ -32,12 +32,6 @@ char iLogBuffer[256];
 const char* iLogTxt;
 #endif
 
-#ifdef EXTENDED_DEBUG
-#include <string.h>
-#include "debugger/debugger.h"
-#include "isocline/isocline.h"
-#endif
-
 /* increase R by val (to correctly implement refresh counter) if enabled */
 #ifdef DO_INCR
 #define INCR(val) IR = (IR & ~0x3f) | ((IR + (val)) & 0x3f)
@@ -1116,8 +1110,6 @@ static inline void Z80run(uint32 cpu_delay) {
 		}
 #endif
 		if (Debug) {
-			_bputhex16(PC, &brkMsg[12]);
-			fputs(brkMsg, stderr);
 			Z80debug();
 		}
 

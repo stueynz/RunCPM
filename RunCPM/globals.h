@@ -32,7 +32,7 @@
 // #define iDEBUG			// Enables instruction logging onto iDebug.log (for development debug only)
 // #define DEBUGLOG			// Writes extensive call trace information to RunCPM.log
 
-// #define EXTENDED_DEBUG    // Extended debugger, has Multiple Breakpoints; Breakpoint on address/port, Read/Write, Expressions etc...
+// #define EXTENDED_DEBUG    // Extended debugger, has Multiple Breakpoints; Breakpoint on address/port, Read/Write, Expressions, and GDB Server
                                //   Note:  Can't be used in conjunction with RAM_FAST
 							   //   Best to set via Makefile.posix, as there's a bunch more files to compile & link...
 #define DEBUGKEY 4 // Key to trigger the debugger. 4 = ^D

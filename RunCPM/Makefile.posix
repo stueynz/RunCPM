@@ -59,9 +59,9 @@ endif
 ## extended debugger adds a bunch more object files, glib library & conditional compile flags 
 ##     to enable multiple breakpoints, memory watchpoints and variables in the on-board debugger (Ctl-D)
 ##     as well as enabling GDB remote debugging if debug port is given on the commandline.
-ifdef extendedDebug
+ifeq ($(extendedDebug),1)
 
-CFLAGS += -DDEBUG -DEXTENDED_DEBUG $$(pkg-config --cflags glib-2.0)
+CFLAGS += -DEXTENDED_DEBUG $$(pkg-config --cflags glib-2.0)
 LDFLAGS+= $$(pkg-config --libs glib-2.0)
 
 OBJS += debugger/debugger.o debugger/breakpoint.o debugger/expression.o debugger/ui.o \
