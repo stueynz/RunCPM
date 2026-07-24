@@ -1,12 +1,20 @@
 #ifndef EXT_DEBUG_H
 #define EXT_DEBUG_H
 
+#ifndef GLOBALS_H
+#include "globals.h"
+#endif
+
 #include <string.h>
 #include "debugger/debugger.h"
+#include "debugger/gdbserver.h"
 #include "isocline/isocline.h"
 
 extern int Debug;
 
+extern void ic_initialize();  // libreadline replacement
+
+/* TODO:  This disasesembly code is stolen from the main debugger - should make it a separate .h file so we can DRY */
 /* Mnemonic tables for Z80 disassembly - shared by all CPU models */
 static const char* Mnemonics[256] =
 {
@@ -341,8 +349,7 @@ static uint8 InstructionLength(uint16 pos) {
 
 // Adds HH hex string to the buffer location
 //    returns next free buffer location
-char * 
-_bputhex8(uint8 c, char *bptr)		// Puts a HH hex string
+char * _bputhex8(uint8 c, char *bptr)		// Puts a HH hex string
 {
   *bptr++ = tohex(c >> 4);
   *bptr++ = tohex(c & 0x0f);
@@ -352,8 +359,7 @@ _bputhex8(uint8 c, char *bptr)		// Puts a HH hex string
 
 // Adds HH hex string to the buffer location
 //    returns next free buffer location
-char * 
-_bputhex16(uint16 w, char *bptr)	// puts a HHHH hex string
+char * _bputhex16(uint16 w, char *bptr)	// puts a HHHH hex string
 {
 	bptr = _bputhex8(w >> 8, bptr);
 	bptr = _bputhex8(w & 0x00ff, bptr);
@@ -372,20 +378,20 @@ bDisHex(uint16 pos, char *bptr) {
 	uint8 count = 0;
 
 	switch (ch) {
-	case 0xCB: ++pos; ch = _RamRead(pos); txt = MnemonicsCB[_RamRead(pos++)]; break;
-	case 0xED: ++pos; ch = _RamRead(pos); txt = MnemonicsED[_RamRead(pos++)]; break;
-	case 0xDD:
-	case 0xFD:
-		++pos;
-		ch = _RamRead(pos);
-		if (_RamRead(pos) != 0xCB) {
-			txt = MnemonicsXX[_RamRead(pos++)];
-		} else {
-			bptr = _bputhex8(ch, bptr); *bptr++ = ' '; count++;  // _putch(' ');
-			++pos; txt = MnemonicsXCB[_RamRead(pos++)];
-		}
-		break;
-	default: ch = _RamRead(pos); txt = Mnemonics[_RamRead(pos++)];
+		case 0xCB: ++pos; ch = _RamRead(pos); txt = MnemonicsCB[_RamRead(pos++)]; break;
+		case 0xED: ++pos; ch = _RamRead(pos); txt = MnemonicsED[_RamRead(pos++)]; break;
+		case 0xDD:
+		case 0xFD:
+			++pos;
+			ch = _RamRead(pos);
+			if (_RamRead(pos) != 0xCB) {
+				txt = MnemonicsXX[_RamRead(pos++)];
+			} else {
+				bptr = _bputhex8(ch, bptr); *bptr++ = ' '; count++;  // _putch(' ');
+				++pos; txt = MnemonicsXCB[_RamRead(pos++)];
+			}
+			break;
+		default: ch = _RamRead(pos); txt = Mnemonics[_RamRead(pos++)];
 	}
 	bptr = _bputhex8(ch, bptr);
 	*bptr++ = ' ';  // _putch(' ');
@@ -398,7 +404,7 @@ bDisHex(uint16 pos, char *bptr) {
 			txt += 2;
 			++count;
 			bptr = _bputhex8(_RamRead(pos++), bptr);
-			_putch(' ');
+			*bptr++ = ' '; // _putch(' ');
 			break;
 		case '#':
 			txt += 2;
@@ -413,9 +419,9 @@ bDisHex(uint16 pos, char *bptr) {
 		}
 	}
 	while (count < 6) {
-			*bptr++ = ' '; // _putch(' ');
-      *bptr++ = ' '; // _putch(' ');
-      *bptr++ = ' '; // _putch(' ');
+		*bptr++ = ' '; // _putch(' ');
+    	*bptr++ = ' '; // _putch(' ');
+    	*bptr++ = ' '; // _putch(' ');
 		count++;
 	}
 	return bptr;
@@ -486,7 +492,7 @@ uint8 bDisasm(uint16 pos, char *bptr) {
             ++txt;
         }
     }
-
+	*bptr='\0';  // terminate the string
     return (len);
 }
 
