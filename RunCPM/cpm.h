@@ -569,7 +569,7 @@ void _Bios(void) {
     }
     case B_CONIN: { // 3 - Console input
         SET_HIGH_REGISTER(AF, _getcon());
-#ifdef DEBUG
+#if defined(DEBUG) || defined(EXTENDED_DEBUG)
         if (HIGH_REGISTER(AF) == DEBUGKEY)
             Debug = 1;
 #endif // ifdef DEBUG
@@ -755,7 +755,7 @@ void _Bdos(void) {
      */
     case C_READ: {
         HL = _getconE();
-    #ifdef DEBUG
+    #if defined(DEBUG) || defined(EXTENDED_DEBUG)
         if (HL == DEBUGKEY)
             Debug = 1;
     #endif // ifdef DEBUG
@@ -825,7 +825,7 @@ void _Bdos(void) {
         if (e == 0xFF) {
             // Check for char available and return it, or 0x00 if none (non-blocking read)
             HL = _getconNB();
-    #ifdef DEBUG
+    #if defined(DEBUG) || defined(EXTENDED_DEBUG)
             if (HL == DEBUGKEY)
                 Debug = 1;
     #endif // ifdef DEBUG
@@ -836,7 +836,7 @@ void _Bdos(void) {
         } else if (e == 0xFD) {
             // Wait until a character is ready, return it without echoing. (CPM3)
             HL = _getcon();
-    #ifdef DEBUG
+    #if defined(DEBUG) || defined(EXTENDED_DEBUG)
             if (HL == DEBUGKEY)
                 Debug = 1;
     #endif // ifdef DEBUG
@@ -987,6 +987,12 @@ void _Bdos(void) {
                 break;
             }
     #endif // ifdef DEBUG
+    #ifdef EXTENDED_DEBUG
+            if (chr == DEBUGKEY || debugger_mode == DEBUGGER_MODE_TRAPPING) {  // Enter debugger
+                Debug = 1;
+                break;
+            }
+    #endif
 
             if (chr == 5) { // ^E - goto beginning of next line
                 _putcon('\n');
