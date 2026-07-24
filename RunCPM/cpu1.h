@@ -1082,10 +1082,13 @@ static inline void Z80run(uint32 cpu_delay) {
 		}
 
 #ifdef DEBUG
-
+		if (z80_check_breakpoints_on_exec(PC)) {
+			Debug = 1;
+		}
+#endif
 #ifdef EXTENDED_DEBUG
-		// Has GDB connected and Trapped??
-		// no trap from brakpoint... just checking
+		// Has GDB connected (and Trapped)??
+		// no trap from breakpoint... just checking
 		if(gdbserver_activate(FALSE)) {
 			if(gdbserver_debugging_enabled && debugger_mode == DEBUGGER_MODE_HALTED) {
 				continue;   // Wait for the gdb debugger to let things go
@@ -1100,15 +1103,12 @@ static inline void Z80run(uint32 cpu_delay) {
 			debugger_trap();
 			Step = -1;
 		}
-#else
-		if (z80_check_breakpoints_on_exec(PC)) {
-			Debug = 1;
-		}
+#endif
+#if defined(DEBUG) || defined(EXTENDED_DEBUG)
 		if (PC == Step) {
 			Debug = 1;
 			Step = -1;
 		}
-#endif
 		if (Debug) {
 			Z80debug();
 		}
