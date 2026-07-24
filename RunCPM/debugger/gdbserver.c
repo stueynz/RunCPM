@@ -295,7 +295,7 @@ static uint8_t process_packet()
     if (inbuf_size >= 1 && *inbuf == INTERRUPT_CHAR)
     {
         inbuf_erase_head(1);
-        debugger_mode = DEBUGGER_MODE_HALTED;
+        debugger_mode = DEBUGGER_MODE_TRAPPING;
         fprintf(stderr, "GDB trap requested\n");
         return 1;
     }
@@ -600,7 +600,7 @@ static void* network_thread(void* arg)
         gdbserver_client_socket = sock;
         gdbserver_do_not_report_trap = 1;
         num_attached_clients++;
-        debugger_mode = DEBUGGER_MODE_HALTED;
+        debugger_mode = DEBUGGER_MODE_TRAPPING;  // An initial trap() on socket connect...
 
 /*
         // properly wait for it to trap
@@ -1026,18 +1026,23 @@ int gdbserver_activate(int onBreakpoint)
             }
             break;
 
-        case DEBUGGER_MODE_HALTED:
+        case DEBUGGER_MODE_TRAPPING:
             // gdb client has requested a HALT
+            fprintf(stderr, "Execution trapped.\n");
+            break;
+
+        case DEBUGGER_MODE_HALTED:
+            // gdb client is already halted (probably shouldn't ever get here)
+            fprintf(stderr, "Execution already halted.\n");
             break;
     }
 
-    fprintf(stderr, "Execution stopped debugMode:%02d.\n", debugger_mode);
 
-    if (gdbserver_do_not_report_trap == 0 || debugger_mode == DEBUGGER_MODE_HALTED)
+    if (gdbserver_do_not_report_trap == 0)
     {
+        // notify the gdb client that we have trapped
         pthread_mutex_lock(&network_mutex);
         inbuf_reset();
-        // notify the gdb client that we have trapped
         char tbuf[64];
         sprintf(tbuf, "T%02xthread:p%02x.%02x;", 5, 1, 1);
         write_packet(tbuf);

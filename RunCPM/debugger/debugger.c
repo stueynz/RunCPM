@@ -165,10 +165,6 @@ debugger_run( void )
   debugger_mode = debugger_breakpoints ?
                   DEBUGGER_MODE_ACTIVE :
                   DEBUGGER_MODE_INACTIVE;    //  debugger is active if we've got at least one breakpoint
-  // if (gdbserver_debugging_enabled)
-  // {
-  //   return 0;
-  // }
 
   // Not running via GDB server - so turn off main extended debugger
   Debug = 0;

@@ -34,13 +34,14 @@
 /* The current state of the debugger */
 enum debugger_mode_t
 {
-  DEBUGGER_MODE_INACTIVE,	/* No breakpoint set */
-  DEBUGGER_MODE_ACTIVE,		/* Breakpoint set, but emulator running */
-  DEBUGGER_MODE_HALTED,		/* Execution not happening */
+  DEBUGGER_MODE_INACTIVE = 0,	/* No breakpoint set */
+  DEBUGGER_MODE_ACTIVE = 1,		/* Breakpoint set, but emulator running */
+  DEBUGGER_MODE_HALTED = 2,		/* Execution not happening */
+  DEBUGGER_MODE_TRAPPING = 3  /* We have GDB connection, in process of stopping */
 };
 
 extern enum debugger_mode_t debugger_mode;
-extern char gdbserver_debugging_enabled;
+extern char gdbserver_debugging_enabled;   // GDB Server connected and processing packets ?
 
 /* Which base should we display things in */
 extern int debugger_output_base;

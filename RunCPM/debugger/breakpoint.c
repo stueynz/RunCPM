@@ -260,7 +260,7 @@ debugger_check( debugger_breakpoint_type type, uint32_t value )
     break;
 
   case DEBUGGER_MODE_HALTED: return;
-
+  case DEBUGGER_MODE_TRAPPING: return;
   }
 
   // if( signal_breakpoints_updated )
