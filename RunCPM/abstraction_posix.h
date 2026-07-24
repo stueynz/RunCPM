@@ -21,6 +21,7 @@
 #endif
 
 #ifdef EXTENDED_DEBUG
+#include "debugger/debugger.h"
 extern int gdbPort;
 #endif
 
@@ -712,6 +713,15 @@ int _kbhit(void) {
 }
 
 uint8 _getch(void) {
+#if defined(EXTENDED_DEBUG)
+    // We need a non-blocking _getchar() - we might get a GDB trap while we're waiting for input
+    while( ! _kbhit() ) {
+        if(debugger_mode == DEBUGGER_MODE_TRAPPING) {
+            fprintf(stderr, "getch() aborted due to GDB Trap\n");
+            return 0;
+        }
+    }
+#endif
     return getchar();
 }
 
