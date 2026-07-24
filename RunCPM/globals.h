@@ -221,7 +221,7 @@ static uint32 ioBankBase = 0;
 #define MEMSIZE (PAGESIZE * BANKS)  // Total RAM size
 
 #if BANKS == 1
-    #ifndef EXTENDED_DEBUG
+#ifndef EXTENDED_DEBUG
 #define RAM_FAST // If this is defined, all RAM function calls become direct access (see below)
                     // This saves about 2K on the Arduino code and should bring speed improvements
                     // This feature is only available if there is only one bank of RAM

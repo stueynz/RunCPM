@@ -45,11 +45,7 @@ int lst_open = FALSE;
     #endif
 
     #ifdef EXTENDED_DEBUG
-    #include "debugger/debugger.h"
-    #include "debugger/gdbserver.h"
-    #include "extdebug.h"
-
-    extern void ic_initialize();  // libreadline replacement
+    #include "extdebug.h"   // Extended Debugger includes GDB Server
     #endif
 
     #include "ram.h"     // ram.h - Implements the RAM
@@ -76,15 +72,18 @@ int main(int argc, char *argv[]) {
     #endif
     
 #ifdef EXTENDED_DEBUG
-	debugger_init();
+	debugger_init();                // Initialise breakpoint lists etc...
 	z80_debugger_variables_init();  // Tell the debugger about all the Z80 registers
 	ic_initialize();                // libreadline replacement -- that actually works !!
-
-	gdbserver_init();
 
     #ifndef STREAMIO
 	_parse_options(argc, &argv[0]);    // We didn't call host_init(), so we need to check for GDB Server port...
     #endif
+
+	if(gdbPort > 0) {
+    	gdbserver_init();            // setup threads & mutexes
+		gdbserver_start(gdbPort);    // start listening for connection
+    }
 #endif
 
 	_console_init();
@@ -110,6 +109,13 @@ int main(int argc, char *argv[]) {
 	_puts("Banked Memory: ");
 	_puthex8(BANKS);
 	_puts(" banks\r\n");
+#endif
+#ifdef EXTENDED_DEBUG
+	char sbuf[64];
+    if(gdbPort > 0) {
+		sprintf(&sbuf[0], "GDB Server listening on port %d\r\n", gdbPort);
+		_puts(sbuf);
+	}
 #endif
 
     #ifdef ABDOS
@@ -150,7 +156,7 @@ int main(int argc, char *argv[]) {
         Z80run(cpuDelayInstructions);            // Starts simulation
     #endif
         if (Status == 1) // This is set by a call to BIOS 0 - ends CP/M
-    #ifdef DEBUG
+    #if defined(DEBUG) || defined(EXTENDED_DEBUG)
         #ifdef DEBUGONHALT
             Debug = 1;
         Z80debug();
